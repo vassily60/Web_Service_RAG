@@ -1,0 +1,880 @@
+#
+# Defines the project architecture for deployment ("Infrastructure as Code").
+#
+
+# The name of the service.
+service: rag-service
+
+
+
+# To automate building and deployment, we'll use a plugin specifically made for Rust.
+plugins:
+  - serverless-plugin-existing-s3
+
+custom:
+    existingS3:
+        useCoreResources: true
+    myStage: ${opt:stage, self:provider.stage}
+    myEnvironment:
+        COGNITO_SECRET:
+            prod: "cognito-secret-demo-gene2"
+            dev: "cognito-secret-demo-gene2"
+        COGNITO_ARN:
+            prod: arn:aws:cognito-idp:ap-southeast-1:781857564217:userpool/ap-southeast-1_CqDDjmcgi
+            dev: arn:aws:cognito-idp:ap-southeast-1:781857564217:userpool/ap-southeast-1_CqDDjmcgi
+        ROLE_ARN:
+            prod: arn:aws:iam::781857564217:role/aws_lambda_role_api_gateway
+            dev: arn:aws:iam::781857564217:role/aws_lambda_role_api_gateway
+        DATABASE:
+            prod: "INNOVATION"
+            dev: "INNOVATION"
+        APIKEY:
+            prod: "AI-PLATEFORM-LAB-PROD"
+            dev: "AI-PLATEFORM-LAB-DEV" #changed from RUST-BACKEND-CVE-DEV to RUST-BACKEND-CVE-DEV-NEW
+        S3BUCKET_IMPORT_FOLDER:
+            prod: "paloit-cve"
+            dev: "paloit-cve"
+        S3BUCKET_EXPORT_FOLDER:
+            prod: "paloit-cve"
+            dev: "paloit-cve"
+        DATABASE_CONECTION_STRING:
+            prod: RAGsql
+            dev: RAGsql
+        REGION:
+            prod: ap-southeast-1
+            dev: ap-southeast-1
+        OLLAMA_API_URL:
+            prod: "http://35.180.65.102:11434/api/embeddings"
+            dev: "http://35.180.65.102:11434/api/embeddings"
+        SOURCE_PREFIX:
+            prod: "uploadsb/"
+            dev: "uploadsb/"
+        DESTINATION_PREFIX:
+            prod: "indexedk/"
+            dev: "indexedk/"
+        ALL_DOCUMENT_SECURITY_GROUP:
+            prod: "4b116a72-c3af-4561-8523-3cd9ebe572fd"
+            dev: "4b116a72-c3af-4561-8523-3cd9ebe572fd"
+        S3BUCKET_REGION:
+            prod: "eu-west-3"
+            dev: "eu-west-3"
+
+
+# This tells the framework to package each function separately with its own container.
+package:
+    individually: true
+
+# We want to host the project on AWS using Rust.
+provider:
+    name: aws
+    runtime: provided.al2023
+    stage: dev
+    region: ${self:custom.myEnvironment.REGION.${self:custom.myStage}}
+    #versionFunctions: false #https://github.com/serverless/serverless/issues/3696
+    environment:
+      DATABASE_CONECTION_STRING: ${self:custom.myEnvironment.DATABASE_CONECTION_STRING.${self:custom.myStage}}
+      DATABASE: ${self:custom.myEnvironment.DATABASE.${self:custom.myStage}}
+      REGION: ${self:custom.myEnvironment.REGION.${self:custom.myStage}}
+      COGNITO_SECRET: ${self:custom.myEnvironment.COGNITO_SECRET.${self:custom.myStage}}
+      S3BUCKET_IMPORT_FOLDER: ${self:custom.myEnvironment.S3BUCKET_IMPORT_FOLDER.${self:custom.myStage}}
+      S3BUCKET_EXPORT_FOLDER: ${self:custom.myEnvironment.S3BUCKET_EXPORT_FOLDER.${self:custom.myStage}}
+      OLLAMA_API_URL: ${self:custom.myEnvironment.OLLAMA_API_URL.${self:custom.myStage}}
+      SOURCE_PREFIX: ${self:custom.myEnvironment.SOURCE_PREFIX.${self:custom.myStage}}
+      DESTINATION_PREFIX: ${self:custom.myEnvironment.DESTINATION_PREFIX.${self:custom.myStage}}
+      ALL_DOCUMENT_SECURITY_GROUP: ${self:custom.myEnvironment.ALL_DOCUMENT_SECURITY_GROUP.${self:custom.myStage}}
+      S3BUCKET_REGION: ${self:custom.myEnvironment.S3BUCKET_REGION.${self:custom.myStage}}
+      
+    apiGateway:
+        apiKeys:
+        - ${self:custom.myEnvironment.APIKEY.${self:custom.myStage}}
+        usagePlan:
+        #quota:
+            #limit: 100000
+            #offset: 0
+            #period: MONTH
+        # throttle:
+        #   burstLimit: 500
+        #   rateLimit: 400
+
+
+# Here is where we define all our functions (each living in a separate Cargo crate).
+functions:
+    # In this project, we only have one lambda function called `lucky_numbers`.
+    rust_hello:
+        # The name of the handler must match the name of the crate (not the actual function defined within).
+        handler: rust_hello
+        memorySize:
+            - 128
+        timeout:
+            - 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            # build with `cargo lambda build --output-format zip` and then fill in the build path. This is the default for `src/bin/hello_world.rs`
+            artifact: target/lambda/rust_hello/rust_hello_bootstrap.zip
+        # This tells AWS when to trigger our function.
+        events:
+            # The event we're interested in is an incoming HTTP request.
+            - http:
+                  # The function will be called for every POST request that is made
+                  # onto the `/lucky_numbers` endpoint.
+                  path: /rust_hello
+                  method: POST
+    # --------------------------------------------------------------------------------------------------------------
+    # get item from dynamodb
+    rust_dynamo:
+        # The name of the handler must match the name of the crate (not the actual function defined within).
+        handler: rust_dynamo
+        memorySize:
+            - 128
+        timeout:
+            - 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            # build with `cargo lambda build --output-format zip` and then fill in the build path. This is the default for `src/bin/hello_world.rs`
+            artifact: target/lambda/rust_dynamo/rust_dynamo_bootstrap.zip
+        # This tells AWS when to trigger our function.
+        events:
+            # The event we're interested in is an incoming HTTP request.
+            - http:
+                # The function will be called for every POST request that is made
+                # onto the `/rust_dynamo` endpoint.
+                path: /rust_dynamo
+                method: POST
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                integration: lambda
+                request:
+                    passThrough: WHEN_NO_MATCH
+                private: true
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+                
+    # --------------------------------------------------------------------------------------------------------------
+    # decode the cognito token in rust
+    rust_cognito:
+        # The name of the handler must match the name of the crate (not the actual function defined within).
+        handler: rust_cognito
+        memorySize:
+            - 128
+        timeout:
+            - 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            # build with `cargo lambda build --output-format zip` and then fill in the build path. This is the default for `src/bin/hello_world.rs`
+            artifact: target/lambda/rust_cognito/rust_cognito_bootstrap.zip
+        # This tells AWS when to trigger our function.
+        events:
+            # The event we're interested in is an incoming HTTP request.
+            - http:
+                  # The function will be called for every POST request that is made
+                  # onto the `/rust_dynamo` endpoint.
+                  path: /rust_cognito
+                  method: POST
+    # --------------------------------------------------------------------------------------------------------------
+    # decode the cognito token in rust
+    rust_snowflake:
+        # The name of the handler must match the name of the crate (not the actual function defined within).
+        handler: rust_snowflake
+        memorySize:
+            - 128
+        timeout:
+            - 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            # build with `cargo lambda build --output-format zip` and then fill in the build path. This is the default for `src/bin/hello_world.rs`
+            artifact: target/lambda/rust_snowflake/rust_snowflake_bootstrap.zip
+        # This tells AWS when to trigger our function.
+        events:
+            # The event we're interested in is an incoming HTTP request.
+            - http:
+                  # The function will be called for every POST request that is made
+                  # onto the `/rust_dynamo` endpoint.
+                  path: /rust_snowflake
+                  method: POST
+    # --------------------------------------------------------------------------------------------------------------
+    # decode the cognito token in rust
+    rust_secret:
+        # The name of the handler must match the name of the crate (not the actual function defined within).
+        handler: rust_secret
+        memorySize:
+            - 128
+        timeout:
+            - 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            # build with `cargo lambda build --output-format zip` and then fill in the build path. This is the default for `src/bin/hello_world.rs`
+            artifact: target/lambda/rust_secret/rust_secret_bootstrap.zip
+        # This tells AWS when to trigger our function.
+        events:
+            # The event we're interested in is an incoming HTTP request.
+            - http:
+                  # The function will be called for every POST request that is made
+                  # onto the `/rust_dynamo` endpoint.
+                  path: /rust_secret
+                  method: POST
+    # --------------------------------------------------------------------------------------------------------------
+    # list documents
+    rust_document_list:
+        handler: rust_document_list
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_document_list/rust_document_list_bootstrap.zip
+        events:
+            - http:
+                path: /rust_document_list
+                method: POST
+                #authorizer:
+                #    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # get chunks with embedding similarity
+    rust_get_chunks:
+        handler: rust_get_chunks
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_get_chunks/rust_get_chunks_bootstrap.zip
+        events:
+            - http:
+                path: /rust_get_chunks
+                method: POST
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # update document tags
+    rust_update_tags:
+        handler: rust_update_tags
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_update_tags/rust_update_tags_bootstrap.zip
+        events:
+            - http:
+                path: /rust_update_tags
+                method: PUT
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # openai answer generation
+    rust_openai_answer:
+        handler: rust_openai_answer
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_openai_answer/rust_openai_answer_bootstrap.zip
+        events:
+            - http:
+                path: /rust_openai_answer
+                method: POST
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # get metadata
+    rust_get_metadata:
+        handler: rust_get_metadata
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_get_metadata/rust_get_metadata_bootstrap.zip
+        events:
+            - http:
+                path: /rust_get_metadata
+                method: POST
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # compute document metadata using Ollama
+    rust_compute_metadata:
+        handler: rust_compute_metadata
+        memorySize: 256
+        timeout: 600
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_compute_metadata/rust_compute_metadata_bootstrap.zip
+        events:
+            - http:
+                path: /rust_compute_metadata
+                method: POST
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+    
+    
+    # --------------------------------------------------------------------------------------------------------------
+    # get recurrent query
+    rust_get_recurrent_query:
+        handler: rust_get_recurrent_query
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_get_recurrent_query/rust_get_recurrent_query_bootstrap.zip
+        events:
+            - http:
+                path: /rust_get_recurrent_query
+                method: POST
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # ---------------
+    rust_get_document_metadatas:
+        handler: rust_get_document_metadatas
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_get_document_metadatas/rust_get_document_metadatas_bootstrap.zip
+        events:
+            - http:
+                path: /rust_get_document_metadatas
+                method: POST
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # add recurrent query
+    rust_add_recurrent_query:
+        handler: rust_add_recurrent_query
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_add_recurrent_query/rust_add_recurrent_query_bootstrap.zip
+        events:
+            - http:
+                path: /rust_add_recurrent_query
+                method: POST
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # delete recurrent query
+    rust_delete_recurrent_query:
+        handler: rust_delete_recurrent_query
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_delete_recurrent_query/rust_delete_recurrent_query_bootstrap.zip
+        events:
+            - http:
+                path: /rust_delete_recurrent_query
+                method: DELETE
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # update recurrent query
+    rust_update_recurrent_query:
+        handler: rust_update_recurrent_query
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_update_recurrent_query/rust_update_recurrent_query_bootstrap.zip
+        events:
+            - http:
+                path: /rust_update_recurrent_query
+                method: PUT
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # json processing utility
+    rust_json:
+        handler: rust_json
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_json/rust_json_bootstrap.zip
+        events:
+            - http:
+                path: /rust_json
+                method: POST
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # add metadata
+    rust_add_metadata:
+        handler: rust_add_metadata
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_add_metadata/rust_add_metadata_bootstrap.zip
+        events:
+            - http:
+                path: /rust_add_metadata
+                method: POST
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # delete metadata
+    rust_delete_metadata:
+        handler: rust_delete_metadata
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_delete_metadata/rust_delete_metadata_bootstrap.zip
+        events:
+            - http:
+                path: /rust_delete_metadata
+                method: DELETE
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # update metadata
+    rust_update_metadata:
+        handler: rust_update_metadata
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_update_metadata/rust_update_metadata_bootstrap.zip
+        events:
+            - http:
+                path: /rust_update_metadata
+                method: PUT
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # get synonym
+    rust_get_synonym:
+        handler: rust_get_synonym
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_get_synonym/rust_get_synonym_bootstrap.zip
+        events:
+            - http:
+                path: /rust_get_synonym
+                method: POST
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # add synonym
+    rust_add_synonym:
+        handler: rust_add_synonym
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_add_synonym/rust_add_synonym_bootstrap.zip
+        events:
+            - http:
+                path: /rust_add_synonym
+                method: PUT
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # delete synonym
+    rust_delete_synonym:
+        handler: rust_delete_synonym
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_delete_synonym/rust_delete_synonym_bootstrap.zip
+        events:
+            - http:
+                path: /rust_delete_synonym
+                method: DELETE
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # update synonym
+    rust_update_synonym:
+        handler: rust_update_synonym
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_update_synonym/rust_update_synonym_bootstrap.zip
+        events:
+            - http:
+                path: /rust_update_synonym
+                method: PUT
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # compute synonyms
+    rust_compute_synonym:
+        handler: rust_compute_synonym
+        memorySize: 128
+        timeout: 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_compute_synonym/rust_compute_synonym_bootstrap.zip
+        events:
+            - http:
+                path: /rust_compute_synonym
+                method: POST
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # new service rust_s3_upload_url
+    rust_s3_upload_url:
+        handler: rust_s3_upload_url
+        memorySize:
+            - 128
+        timeout:
+            - 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_s3_upload_url/rust_s3_upload_url_bootstrap.zip
+        events:
+            - http:
+                path: rust_s3_upload_url
+                method: POST
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    # --------------------------------------------------------------------------------------------------------------
+    # new service rust_document_presigned_url
+    rust_document_presigned_url:
+        handler: rust_document_presigned_url
+        memorySize:
+            - 128
+        timeout:
+            - 29
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_document_presigned_url/rust_document_presigned_url_bootstrap.zip
+        events:
+            - http:
+                path: rust_document_presigned_url
+                method: POST
+                authorizer:
+                    arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+                cors:
+                    origins:
+                        - '*'
+                    headers:
+                        - Content-Type
+                        - X-Amz-Date
+                        - Authorization
+                        - X-Api-Key
+                        - X-Amz-Security-Token
+                response:
+                    headers:
+                        Content-Type: "'application/json'"
+                    template: $input.path('$')
+                    
+    
+    # --------------------------------------------------------------------------------------------------------------
+    # PDF File Integration Lambda triggered by S3 events
+    rust_pdf_file_integration:
+        # The name of the handler must match the name of the crate (not the actual function defined within).
+        handler: rust_pdf_file_integration
+        memorySize:
+            - 256
+        timeout:
+            - 120 # Longer timeout for processing PDFs
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_pdf_file_integration/rust_pdf_file_integration_bootstrap.zip
+        # This tells AWS when to trigger our function.
+        events:
+            - s3:
+                bucket: ${self:custom.myEnvironment.S3BUCKET_IMPORT_FOLDER.${self:custom.myStage}}
+                event: s3:ObjectCreated:*
+                rules:
+                    - suffix: .pdf
+                    - prefix: ${self:custom.myEnvironment.SOURCE_PREFIX.${self:custom.myStage}}
+                existing: true
+
+    # --------------------------------------------------------------------------------------------------------------
+    # File Vectorisation Lambda triggered by S3 events
+    rust_file_vectorisation:
+        # The name of the handler must match the name of the crate (not the actual function defined within).
+        handler: rust_file_vectorisation
+        memorySize:
+            - 256
+        timeout:
+            - 500 # Longer timeout for processing embeddings
+        role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+        package:
+            artifact: target/lambda/rust_file_vectorisation/rust_file_vectorisation_bootstrap.zip
+        # This tells AWS when to trigger our function.
+        events:
+            - s3:
+                bucket: ${self:custom.myEnvironment.S3BUCKET_EXPORT_FOLDER.${self:custom.myStage}}
+                event: s3:ObjectCreated:*
+                rules:
+                    - suffix: .pdf
+                    - prefix: ${self:custom.myEnvironment.DESTINATION_PREFIX.${self:custom.myStage}}
+                existing: true

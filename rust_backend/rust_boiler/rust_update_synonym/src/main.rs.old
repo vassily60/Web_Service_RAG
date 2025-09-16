@@ -1,0 +1,254 @@
+use lambda_http::{run, service_fn, Body, Error, Request, Response};
+use serde::{Serialize, Deserialize};
+use serde_json::{json, Value};
+use std::env;
+use chrono::Utc;
+
+use aws_config::meta::region::RegionProviderChain;
+use aws_sdk_secretsmanager::Client as SecretManagerClient;
+
+use tokio_postgres::{Client, Error as OtherError};
+use postgres_native_tls::MakeTlsConnector;
+use native_tls::TlsConnector;
+use jsonwebtokens_cognito::KeySet;
+
+// Input struct for the synonym update data
+#[derive(Debug, Serialize, Deserialize)]
+struct SynonymUpdateInput {
+    synonym_uuid: String, // UUID of the synonym to update
+    synonym_name: Option<String>,
+    synonym_value: Option<String>,
+    comments: Option<String>,
+}
+
+// Output struct for the response
+#[derive(Debug, Serialize, Deserialize)]
+struct SynonymOutput {
+    synonym_uuid: String,
+    synonym_name: String,
+    synonym_value: String,
+    updated_by: String,
+}
+
+async fn show_secret(client: &SecretManagerClient, name: &str) -> Result<String, Error> {
+    let resp = client.get_secret_value().secret_id(name).send().await?;
+    match resp.secret_string() {
+        Some(secret) => Ok(secret.into()),
+        None => panic!("Error to get the secret: {:?}", name),
+    }
+}
+
+// Function to extract email from Cognito token
+async fn extract_email_from_token(event: &Request) -> Result<String, Error> {
+    if let Some(auth_header) = event.headers().get("Authorization") {
+        let auth_header_str = auth_header.to_str()?;
+        
+        // Extract the token part (remove "Bearer ")
+        if auth_header_str.len() > 7 {
+            let token = &auth_header_str[7..]; // Skip "Bearer "
+            
+            // Create a new KeySet for AWS Cognito
+            let region = env::var("REGION").expect("REGION environment variable not set");
+            let cognito_pool_id = env::var("COGNITO_SECRET").expect("COGNITO_SECRET environment variable not set");
+            
+            let keyset = KeySet::new(&region, &cognito_pool_id);
+            
+            if let Ok(key_set_result) = keyset {
+                let verifier = key_set_result.new_id_token_verifier(&["6t7op70tnvduqm0vdip66r6l3u"]).build()?;
+                
+                if let Ok(token_data) = key_set_result.verify(token, &verifier).await {
+                    // Parse the token data to extract email
+                    println!("Token data: {}", token_data);
+                    let token_json: Value = serde_json::from_str(&token_data.to_string())?;
+                    
+                    if let Some(email) = token_json["email"].as_str() {
+                        return Ok(email.to_string());
+                    } else {
+                        return Ok("unknown_user@example.com".to_string());
+                    }
+                }
+            }
+        }
+    }
+    
+    // Default email if not found
+    Ok("unknown_user@example.com".to_string())
+}
+
+async fn function_handler(event: Request) -> Result<Response<Body>, Error> {
+    // Extract email from token
+    let user_email = extract_email_from_token(&event).await?;
+    println!("User email: {}", user_email);
+    
+    // Parse request body to get synonym update data
+    let body = event.body();
+    let synonym_input: SynonymUpdateInput = match serde_json::from_slice(body) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("Failed to parse request body: {}", e);
+            return Ok(Response::builder()
+                .status(400)
+                .header("content-type", "application/json")
+                .body(json!({"statusAPI": "OPERATIONFAIL", "error": "Invalid request body"}).to_string().into())
+                .map_err(Box::new)?);
+        }
+    };
+    
+    // Access environment variables
+    let region_provider = RegionProviderChain::default_provider().or_else("ap-southeast-1");
+    let config = aws_config::from_env().region(region_provider).load().await;
+    let client_secret = aws_sdk_secretsmanager::Client::new(&config);
+    println!("Access environment variables!");
+
+    // Decode secret
+    let db_secret_name = env::var("DATABASE_CONECTION_STRING").expect("DATABASE_CONECTION_STRING environment variable not set");
+    let db_secret = show_secret(&client_secret, &db_secret_name).await.unwrap();
+    let db_credentials: serde_json::Value = serde_json::from_str(&db_secret).unwrap();
+    println!("Decoded secret!");
+
+    let db_server = db_credentials["DB_HOST"].as_str().unwrap();
+    println!("Server: {}", db_server);
+    let database = db_credentials["DB_NAME"].as_str().unwrap();
+    println!("Database: {}", database);
+    let db_username = db_credentials["DB_USER"].as_str().unwrap();
+    let db_password = db_credentials["DB_PASSWORD"].as_str().unwrap();
+    let db_port = db_credentials["DB_PORT"].as_str().unwrap();
+    println!("End of get info from secret!");
+
+    let tls_connector = TlsConnector::builder()
+        .danger_accept_invalid_certs(true) // Disable certificate validation for development
+        .build();
+    let tls = MakeTlsConnector::new(tls_connector.expect("Failed to create TLS connector"));
+
+    println!("TLS connector created");
+
+    // Connect to the database with better error handling
+    let connection_string = format!(
+        "host={} port={} user={} password={} dbname={}", 
+        db_server, db_port, db_username, db_password, database
+    );
+    println!("Attempting to connect to database...");
+    
+    let connection_result = tokio_postgres::connect(&connection_string, tls).await;
+
+    let (client, connection) = match connection_result {
+        Ok((client, connection)) => {
+            println!("Successfully connected to database");
+            (client, connection)
+        },
+        Err(e) => {
+            eprintln!("Failed to connect to database: {}", e);
+            return Ok(Response::builder()
+                .status(500)
+                .header("content-type", "application/json")
+                .body(json!({"statusAPI": "CRASH", "error": "Database connection failed"}).to_string().into())
+                .map_err(Box::new)?);
+        }
+    };
+
+    // Spawn a new task to manage the connection
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("Connection error: {}", e);
+        }
+    });
+
+    // Get the current time for the update timestamp
+    let current_time = Utc::now();
+    
+    // Build the update query dynamically based on which fields are provided
+    let mut update_parts = Vec::new();
+    let mut params = Vec::new();
+    
+    // Always add the updated_date and updated_by fields
+    update_parts.push("updated_date = $1".to_string());
+    params.push(&current_time as &(dyn tokio_postgres::types::ToSql + Sync));
+    
+    update_parts.push("updated_by = $2".to_string());
+    params.push(&user_email as &(dyn tokio_postgres::types::ToSql + Sync));
+    
+    let mut param_index = 3; // Start from 3 because we already used $1 and $2
+    
+    // Add optional fields if they are provided
+    if let Some(synonym_name) = &synonym_input.synonym_name {
+        update_parts.push(format!("synonym_name = ${}", param_index));
+        params.push(synonym_name as &(dyn tokio_postgres::types::ToSql + Sync));
+        param_index += 1;
+    }
+    
+    if let Some(synonym_value) = &synonym_input.synonym_value {
+        update_parts.push(format!("synonym_value = ${}", param_index));
+        params.push(synonym_value as &(dyn tokio_postgres::types::ToSql + Sync));
+        param_index += 1;
+    }
+    
+    if let Some(comments) = &synonym_input.comments {
+        update_parts.push(format!("comments = ${}", param_index));
+        params.push(comments as &(dyn tokio_postgres::types::ToSql + Sync));
+        param_index += 1;
+    }
+    
+    // Add the UUID condition
+    params.push(&synonym_input.synonym_uuid as &(dyn tokio_postgres::types::ToSql + Sync));
+    
+    // Construct the final update query
+    let update_query = format!(
+        "UPDATE document_library.synonyms SET {} WHERE synonym_uuid = ${} RETURNING synonym_uuid, synonym_name, synonym_value",
+        update_parts.join(", "),
+        param_index
+    );
+    
+    println!("Update query: {}", update_query);
+    
+    // Execute the update query
+    match client.query_one(&update_query, &params[..]).await {
+        Ok(row) => {
+            println!("Successfully updated synonym: {}", synonym_input.synonym_uuid);
+            
+            // Extract updated data from the returned row
+            let updated_synonym = SynonymOutput {
+                synonym_uuid: row.get("synonym_uuid"),
+                synonym_name: row.get("synonym_name"),
+                synonym_value: row.get("synonym_value"),
+                updated_by: user_email,
+            };
+            
+            let response_body = json!({
+                "statusAPI": "OK",
+                "synonym": updated_synonym
+            });
+            
+            let resp = Response::builder()
+                .status(200)
+                .header("content-type", "application/json")
+                .body(response_body.to_string().into())
+                .map_err(Box::new)?;
+            Ok(resp)
+        },
+        Err(e) => {
+            eprintln!("Failed to update synonym: {}", e);
+            Ok(Response::builder()
+                .status(500)
+                .header("content-type", "application/json")
+                .body(json!({
+                    "statusAPI": "OPERATIONFAIL", 
+                    "error": format!("Failed to update synonym: {}", e)
+                }).to_string().into())
+                .map_err(Box::new)?)
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or(tracing_subscriber::EnvFilter::new("INFO")),
+        )
+        .with_target(false)
+        .without_time()
+        .init();
+
+    run(service_fn(function_handler)).await
+}

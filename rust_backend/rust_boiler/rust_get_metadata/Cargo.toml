@@ -1,0 +1,20 @@
+[package]
+name = "rust_get_metadata"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lambda_http = { version = "0.8", default-features = false, features = ["apigw_http"] }
+lambda_runtime = "0.8"
+tokio = { version = "1", features = ["full"] }
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+aws-config = "0.55"
+aws-sdk-secretsmanager = "0.27"
+postgres-native-tls = "0.5"
+native-tls = "0.2"
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
+

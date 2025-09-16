@@ -1,0 +1,8 @@
+[workspace]
+members = ["rust_hello","rust_dynamo","rust_cognito","rust_snowflake","rust_secret","rust_json","rust_document_list","rust_get_chunks","rust_update_tags","rust_openai_answer","rust_get_metadata","rust_add_metadata","rust_delete_metadata","rust_update_metadata","rust_compute_metadata","rust_get_recurrent_query","rust_add_recurrent_query","rust_delete_recurrent_query","rust_update_recurrent_query","rust_get_document_metadatas","rust_get_synonym","rust_add_synonym","rust_update_synonym","rust_delete_synonym","rust_compute_synonym","rust_document_presigned_url","rust_s3_upload_url","rust_pdf_file_integration","rust_file_vectorisation"]
+resolver = "2"
+
+[profile.release]
+opt-level = "z"
+
+

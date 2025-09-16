@@ -1,0 +1,25 @@
+# --------------------------------------------------------------------------------------------------------------
+# PDF File Integration Lambda triggered by S3 events
+rust_pdf_file_integration:
+    # The name of the handler must match the name of the crate (not the actual function defined within).
+    handler: rust_pdf_file_integration
+    memorySize:
+        - 256
+    timeout:
+        - 120 # Longer timeout for processing PDFs
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    package:
+        # build with `cargo lambda build --output-format zip` and then fill in the build path.
+        artifact: target/lambda/rust_pdf_file_integration/rust_pdf_file_integration_bootstrap.zip
+    # This tells AWS when to trigger our function.
+    environment:
+        SOURCE_PREFIX: ${env:SOURCE_PREFIX, 'imported/'}
+        DESTINATION_PREFIX: ${env:DESTINATION_PREFIX, 'processed/'}
+    events:
+        - s3:
+            bucket: ${self:custom.myEnvironment.S3BUCKET_IMPORT_FOLDER.${self:custom.myStage}}
+            event: s3:ObjectCreated:*
+            rules:
+                - suffix: .pdf
+                - prefix: ${env:SOURCE_PREFIX, 'imported/'}
+            existing: true

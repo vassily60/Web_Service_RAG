@@ -1,0 +1,1291 @@
+openapi: 3.0.0
+info:
+  title: Rust CVE API
+  version: 1.0.0
+  description: API documentation for the Rust CVE project
+
+servers:
+  - url: https://{stage}.execute-api.{region}.amazonaws.com
+    variables:
+      stage:
+        default: dev
+      region:
+        default: ap-southeast-1
+
+components:
+  securitySchemes:
+    cognitoAuth:
+      type: apiKey
+      name: Authorization
+      in: header
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+    S3FileVectorizationEvent:
+      type: object
+      description: S3 event for file vectorization
+      properties:
+        Records:
+          type: array
+          items:
+            type: object
+            properties:
+              s3:
+                type: object
+                properties:
+                  bucket:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                  object:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        description: Path to the PDF file in S3
+
+paths:
+  /rust_hello:
+    post:
+      summary: Rust Hello Endpoint
+      operationId: rustHello
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Hello from Rust!"
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /rust_dynamo:
+    post:
+      summary: Rust DynamoDB Endpoint
+      operationId: rustDynamo
+      security:
+        - cognitoAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: string
+                    example: "DynamoDB data"
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /rust_cognito:
+    post:
+      summary: Rust Cognito Endpoint
+      operationId: rustCognito
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "Cognito token"
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /rust_snowflake:
+    post:
+      summary: Rust Snowflake Endpoint
+      operationId: rustSnowflake
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: string
+                    example: "Snowflake data"
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /rust_secret:
+    post:
+      summary: Rust Secret Endpoint
+      operationId: rustSecret
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                    example: "Secret data"
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /rust_document_list:
+    post:
+      summary: Rust Document List Endpoint
+      operationId: rustDocumentList
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_id:
+                  type: integer
+                  example: 22
+                  description: "Optional client ID"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  example: ["financial", "report"]
+                  description: "Optional tags to filter documents"
+                document_filters:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filter_type:
+                        type: string
+                        example: "metadata"
+                        description: "Type of filter to apply. Use 'metadata' for filtering by document metadata."
+                      filter_value:
+                        type: string
+                        example: "{\"metadata_uuid\":\"abc-123\",\"operator\":\"eq\",\"value\":\"example value\"}"
+                        description: "JSON string containing filter details. For metadata filters, include metadata_uuid, operator, and value."
+                  description: "Filters to apply to the document search. Can include metadata filters."
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        document_uuid:
+                          type: string
+                          example: "123e4567-e89b-12d3-a456-426614174000"
+                        created_by:
+                          type: string
+                          example: "john.doe@example.com"
+                        creation_date:
+                          type: integer
+                          format: int64
+                          description: Unix timestamp (seconds since epoch)
+                          example: 1589536200
+                        document_name:
+                          type: string
+                          example: "Financial Report 2023.pdf"
+                        document_location:
+                          type: string
+                          example: "s3://documents/financial/report2023.pdf"
+                        lenght_chunk:
+                          type: integer
+                          example: 12345
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                          example: ["financial", "report", "2023"]
+                        document_metadata:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              metadata_uuid:
+                                type: string
+                                example: "metadata-uuid-123"
+                              metadata_name:
+                                type: string
+                                example: "document_type"
+                              metadata_value_string:
+                                type: string
+                                example: "contract"
+                                nullable: true
+                              metadata_value_int:
+                                type: integer
+                                example: 100
+                                nullable: true
+                              metadata_value_float:
+                                type: number
+                                format: float
+                                example: 10.5
+                                nullable: true
+                              metadata_value_boolean:
+                                type: boolean
+                                example: true
+                                nullable: true
+                              metadata_value_date:
+                                type: string
+                                format: date
+                                example: "2023-01-15"
+                                nullable: true
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /rust_get_chunks:
+    post:
+      summary: Rust Get Chunks Endpoint
+      operationId: rustGetChunks
+      description: Performs semantic search on document chunks using vector embeddings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document_filters:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filter_type:
+                        type: string
+                        example: "metadata"
+                        description: "Type of filter to apply. Use 'metadata' for filtering by document metadata."
+                      filter_value:
+                        type: string
+                        example: "{\"metadata_uuid\":\"abc-123\",\"operator\":\"eq\",\"value\":\"example value\"}"
+                        description: "JSON string containing filter details. For metadata filters, include metadata_uuid, operator, and value."
+                  description: "Filters to apply to the document search. Can include metadata filters."
+                question:
+                  type: string
+                  example: "What is the status?"
+                  description: "The question to use for semantic similarity search"
+                num_results:
+                  type: integer
+                  example: 20
+                  description: "Maximum number of chunks to return"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  example: ["financial", "report"]
+                  description: "Optional tags to filter documents"
+                document_uuid:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                  description: "Optional document UUID to limit search to a specific document"
+              required:
+                - question
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chunks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        document_uuid:
+                          type: string
+                          example: "123e4567-e89b-12d3-a456-426614174000"
+                        document_name:
+                          type: string
+                          example: "Financial Report 2023.pdf"
+                        document_location:
+                          type: string
+                          example: "s3://documents/financial/report2023.pdf"
+                        document_hash:
+                          type: string
+                          example: "abc123"
+                        document_type:
+                          type: string
+                          example: "pdf"
+                        document_status:
+                          type: string
+                          example: "active"
+                        document_chunk_uuid:
+                          type: string
+                          example: "chunk-uuid-123"
+                        embebed_text:
+                          type: string
+                          example: "This is a chunk of content from the document."
+                        document_embeding_uuid:
+                          type: string
+                          example: "embedding-uuid-123"
+                        embeder_type:
+                          type: string
+                          example: "openai"
+                        embedding_token:
+                          type: integer
+                          example: 128
+                        embedding_time:
+                          type: number
+                          format: float
+                          example: 0.75
+        '400':
+          description: Bad request - Missing or invalid parameters
+        '500':
+          description: Internal server error - Database connection or query failed
+
+  /rust_update_tags:
+    put:
+      summary: Update Document Tags
+      operationId: rustUpdateTags
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document_uuid:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                  description: "UUID of the document to update"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  example: ["financial", "report", "2023"]
+                  description: "Array of tags to assign to the document"
+              required:
+                - document_uuid
+                - tags
+      responses:
+        '200':
+          description: Tags updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Tags updated successfully"
+                  document_uuid:
+                    type: string
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+        '400':
+          description: Bad request - Missing or invalid parameters
+        '404':
+          description: Document not found
+        '500':
+          description: Internal server error
+
+  /rust_openai_answer:
+    post:
+      summary: Rust OpenAI Answer Endpoint
+      operationId: rustOpenAIAnswer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                  example: "What are the key findings in this document?"
+                  description: "The user's question to be answered"
+                chunks:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      document_uuid:
+                        type: string
+                        example: "123e4567-e89b-12d3-a456-426614174000"
+                      document_name:
+                        type: string
+                        example: "Financial Report 2023.pdf"
+                      document_location:
+                        type: string
+                        example: "s3://documents/financial/report2023.pdf"
+                      document_hash:
+                        type: string
+                        example: "abc123"
+                      document_type:
+                        type: string
+                        example: "pdf"
+                      document_status:
+                        type: string
+                        example: "active"
+                      document_chunk_uuid:
+                        type: string
+                        example: "chunk-uuid-123"
+                      embebed_text:
+                        type: string
+                        example: "This is a chunk of content from the document."
+                      document_embeding_uuid:
+                        type: string
+                        example: "embedding-uuid-123"
+                      embeder_type:
+                        type: string
+                        example: "openai"
+                      embedding_token:
+                        type: integer
+                        example: 128
+                      embedding_time:
+                        type: number
+                        format: float
+                        example: 0.75
+              required:
+                - question
+                - chunks
+      responses:
+        '200':
+          description: Successful response with OpenAI generated answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer:
+                    type: string
+                    example: "Based on the document, the key findings are..."
+        '400':
+          description: Bad request - Missing or invalid parameters
+        '500':
+          description: Internal server error
+
+  /rust_get_metadata:
+    post:
+      summary: Get Document Metadata
+      operationId: rustGetMetadata
+      description: Retrieves metadata information from the document_library.metadatas table
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document_uuid:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                  description: "Optional UUID of a document to filter metadata by. If not provided, all metadata records will be returned."
+      responses:
+        '200':
+          description: Successful response with metadata information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  metadatas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        metadata_uuid:
+                          type: string
+                          example: "abcd1234-e89b-12d3-a456-426614174000"
+                        metadata_name:
+                          type: string
+                          example: "document_category"
+                        metadata_description:
+                          type: string
+                          example: "Category of the document"
+                        metadata_type:
+                          type: string
+                          example: "string"
+                        creation_date:
+                          type: integer
+                          format: int64
+                          description: Unix timestamp (seconds since epoch)
+                        created_by:
+                          type: string
+                          example: "system"
+                        updated_date:
+                          type: integer
+                          format: int64
+                          description: Unix timestamp (seconds since epoch)
+                        updated_by:
+                          type: string
+                          example: "john.doe@example.com"
+                        comments:
+                          type: string
+                          example: "Metadata for document categorization"
+        '400':
+          description: Bad request - Invalid parameters
+        '500':
+          description: Internal server error - Database connection failed
+
+  /rust_add_metadata:
+    post:
+      summary: Add Document Metadata
+      operationId: rustAddMetadata
+      description: Adds a new metadata record to the document_library.metadatas table
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata_name:
+                  type: string
+                  example: "document_category"
+                  description: "Name of the metadata field"
+                metadata_description:
+                  type: string
+                  example: "Category of the document"
+                  description: "Description of the metadata field"
+                metadata_type:
+                  type: string
+                  example: "string"
+                  description: "Type of the metadata field (e.g., string, date, number)"
+              required:
+                - metadata_name
+                - metadata_description
+                - metadata_type
+      responses:
+        '200':
+          description: Metadata added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  message:
+                    type: string
+                    example: "Metadata added successfully"
+                  metadata_uuid:
+                    type: string
+                    example: "abcd1234-e89b-12d3-a456-426614174000"
+        '400':
+          description: Bad request - Invalid parameters
+        '401':
+          description: Unauthorized - Invalid or missing token
+        '500':
+          description: Internal server error - Database operation failed
+
+  /rust_delete_metadata:
+    delete:
+      summary: Delete Document Metadata
+      operationId: rustDeleteMetadata
+      description: Deletes a metadata record and associated document_metadatas from the database
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata_uuid:
+                  type: string
+                  example: "abcd1234-e89b-12d3-a456-426614174000"
+                  description: "UUID of the metadata to delete"
+              required:
+                - metadata_uuid
+      responses:
+        '200':
+          description: Metadata deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  message:
+                    type: string
+                    example: "Metadata deleted successfully"
+        '400':
+          description: Bad request - Invalid parameters
+        '401':
+          description: Unauthorized - Invalid or missing token
+        '404':
+          description: Metadata not found
+        '500':
+          description: Internal server error - Database operation failed
+
+  /rust_update_metadata:
+    put:
+      summary: Update Document Metadata
+      operationId: rustUpdateMetadata
+      description: Updates an existing metadata record in the document_library.metadatas table
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata_uuid:
+                  type: string
+                  example: "abcd1234-e89b-12d3-a456-426614174000"
+                  description: "UUID of the metadata to update"
+                metadata_name:
+                  type: string
+                  example: "document_category"
+                  description: "Updated name of the metadata field"
+                metadata_description:
+                  type: string
+                  example: "Category of the document"
+                  description: "Updated description of the metadata field"
+                metadata_type:
+                  type: string
+                  example: "string"
+                  description: "Updated type of the metadata field (e.g., string, date, number)"
+              required:
+                - metadata_uuid
+                - metadata_name
+                - metadata_description
+                - metadata_type
+      responses:
+        '200':
+          description: Metadata updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  message:
+                    type: string
+                    example: "Metadata updated successfully"
+                  metadata_uuid:
+                    type: string
+                    example: "abcd1234-e89b-12d3-a456-426614174000"
+        '400':
+          description: Bad request - Invalid parameters
+        '401':
+          description: Unauthorized - Invalid or missing token
+        '404':
+          description: Metadata not found
+        '500':
+          description: Internal server error - Database operation failed
+
+  /rust_get_recurrent_query:
+    post:
+      summary: Get Recurrent Queries
+      operationId: rustGetRecurrentQuery
+      description: Retrieves information from the document_library.recurrent_queries_extended table
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recurrent_query_uuid:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                  description: "Optional UUID of a specific recurrent query to retrieve. If not provided, all recurrent queries will be returned."
+                user_uuid:
+                  type: string
+                  example: "abc-123-def-456"
+                  description: "Optional UUID of a user to filter queries by. If provided, only queries belonging to this user will be returned."
+      responses:
+        '200':
+          description: Successful response with recurrent query information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  recurrent_queries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        recurrent_query_uuid:
+                          type: string
+                          example: "123e4567-e89b-12d3-a456-426614174000"
+                        recurrent_query_name:
+                          type: string
+                          example: "Monthly Financial Reports"
+                        query_type:
+                          type: string
+                          example: "document_search"
+                        query_content:
+                          type: string
+                          example: "financial report quarterly"
+                        user_uuid:
+                          type: string
+                          example: "abc-123-def-456"
+                        query_tags:
+                          type: string
+                          example: "financial,report,quarterly"
+                        query_start_document_date:
+                          type: string
+                          format: date
+                          example: "2023-01-01"
+                        query_end_document_date:
+                          type: string
+                          format: date
+                          example: "2023-12-31"
+                        creation_date:
+                          type: string
+                          format: date-time
+                          example: "2023-05-20T15:30:00Z"
+                        created_by:
+                          type: string
+                          example: "john.doe@example.com"
+                        updated_date:
+                          type: string
+                          format: date-time
+                          example: "2023-06-15T10:45:00Z"
+                        updated_by:
+                          type: string
+                          example: "jane.smith@example.com"
+                        comments:
+                          type: string
+                          example: "Query for monthly financial reporting"
+        '400':
+          description: Bad request - Invalid parameters
+        '500':
+          description: Internal server error - Database connection failed
+
+  /rust_add_recurrent_query:
+    post:
+      summary: Add Recurrent Query
+      operationId: rustAddRecurrentQuery
+      description: Adds a new recurrent query to the document_library.recurrent_queries_extended table
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recurrent_query_name:
+                  type: string
+                  example: "Monthly Financial Reports"
+                  description: "Name of the recurrent query"
+                query_type:
+                  type: string
+                  example: "document_search"
+                  description: "Type of the query"
+                query_content:
+                  type: string
+                  example: "financial report quarterly"
+                  description: "Content of the search query"
+                user_uuid:
+                  type: string
+                  example: "abc-123-def-456"
+                  description: "UUID of the user associated with this query"
+                query_tags:
+                  type: string
+                  example: "financial,report,quarterly"
+                  description: "Tags associated with the query (comma-separated)"
+                query_start_document_date:
+                  type: string
+                  format: date
+                  example: "2023-01-01"
+                  description: "Start date for document filtering (optional)"
+                query_end_document_date:
+                  type: string
+                  format: date
+                  example: "2023-12-31"
+                  description: "End date for document filtering (optional)"
+                comments:
+                  type: string
+                  example: "Query for monthly financial reporting"
+                  description: "Additional comments about the query (optional)"
+              required:
+                - recurrent_query_name
+                - query_type
+                - query_content
+      responses:
+        '200':
+          description: Recurrent query added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  message:
+                    type: string
+                    example: "Recurrent query added successfully"
+                  recurrent_query_uuid:
+                    type: string
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+        '400':
+          description: Bad request - Invalid parameters
+        '401':
+          description: Unauthorized - Invalid or missing token
+        '500':
+          description: Internal server error - Database operation failed
+
+  /rust_delete_recurrent_query:
+    delete:
+      summary: Delete Recurrent Query
+      operationId: rustDeleteRecurrentQuery
+      description: Deletes a recurrent query from the document_library.recurrent_queries_extended table
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recurrent_query_uuid:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                  description: "UUID of the recurrent query to delete"
+              required:
+                - recurrent_query_uuid
+      responses:
+        '200':
+          description: Recurrent query deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  message:
+                    type: string
+                    example: "Recurrent query deleted successfully"
+        '400':
+          description: Bad request - Invalid parameters
+        '401':
+          description: Unauthorized - Invalid or missing token
+        '404':
+          description: Recurrent query not found
+        '500':
+          description: Internal server error - Database operation failed
+
+  /rust_update_recurrent_query:
+    put:
+      summary: Update Recurrent Query
+      operationId: rustUpdateRecurrentQuery
+      description: Updates an existing recurrent query in the document_library.recurrent_queries_extended table
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recurrent_query_uuid:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                  description: "UUID of the recurrent query to update"
+                recurrent_query_name:
+                  type: string
+                  example: "Monthly Financial Reports"
+                  description: "Updated name of the recurrent query"
+                query_type:
+                  type: string
+                  example: "document_search"
+                  description: "Updated type of the query"
+                query_content:
+                  type: string
+                  example: "financial report quarterly"
+                  description: "Updated content of the search query"
+                query_tags:
+                  type: string
+                  example: "financial,report,quarterly"
+                  description: "Updated tags associated with the query (comma-separated)"
+                query_start_document_date:
+                  type: string
+                  format: date
+                  example: "2023-01-01"
+                  description: "Updated start date for document filtering"
+                query_end_document_date:
+                  type: string
+                  format: date
+                  example: "2023-12-31"
+                  description: "Updated end date for document filtering"
+                comments:
+                  type: string
+                  example: "Updated query for monthly financial reporting"
+                  description: "Updated comments about the query"
+              required:
+                - recurrent_query_uuid
+                - recurrent_query_name
+                - query_type
+                - query_content
+      responses:
+        '200':
+          description: Recurrent query updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  message:
+                    type: string
+                    example: "Recurrent query updated successfully"
+                  recurrent_query_uuid:
+                    type: string
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+        '400':
+          description: Bad request - Invalid parameters
+        '401':
+          description: Unauthorized - Invalid or missing token
+        '404':
+          description: Recurrent query not found
+        '500':
+          description: Internal server error - Database operation failed
+
+  /rust_compute_metadata:
+    post:
+      summary: Compute Document Metadata
+      operationId: rustComputeMetadata
+      description: Extracts and computes metadata from documents using LLM (Ollama server)
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata_uuid:
+                  type: string
+                  example: "abcd1234-e89b-12d3-a456-426614174000"
+                  description: "Optional UUID of a specific metadata field to compute. If not provided, all metadata fields will be processed."
+                document_uuid:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                  description: "Optional UUID of a specific document to process. If not provided, all documents will be processed."
+      responses:
+        '200':
+          description: Metadata computation completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  message:
+                    type: string
+                    example: "Metadata computation completed successfully"
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        document_uuid:
+                          type: string
+                          example: "123e4567-e89b-12d3-a456-426614174000"
+                        metadata_uuid:
+                          type: string
+                          example: "abcd1234-e89b-12d3-a456-426614174000"
+                        metadata_name:
+                          type: string
+                          example: "document_category"
+                        raw_value:
+                          type: string
+                          example: "Financial"
+                        processed_value:
+                          type: string
+                          example: "Financial"
+                        confidence:
+                          type: number
+                          format: float
+                          example: 0.85
+                        processing_time:
+                          type: number
+                          format: float
+                          example: 1.25
+        '400':
+          description: Bad request - Invalid parameters
+        '401':
+          description: Unauthorized - Invalid or missing token
+        '500':
+          description: Internal server error - Processing or database operation failed
+
+  /rust_json:
+    post:
+      summary: JSON Processing Utility
+      operationId: rustJson
+      description: Utility endpoint for processing and transforming JSON data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  description: "JSON data to process"
+                operation:
+                  type: string
+                  example: "transform"
+                  description: "Type of operation to perform on the JSON data"
+              required:
+                - data
+                - operation
+      responses:
+        '200':
+          description: JSON processing completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  result:
+                    type: object
+                    description: "Processed JSON result"
+        '400':
+          description: Bad request - Invalid parameters or JSON format
+        '500':
+          description: Internal server error - Processing failed
+
+  /rust_get_document_metadatas:
+    post:
+      summary: Get Document Metadata Values
+      operationId: rustGetDocumentMetadatas
+      description: Retrieves metadata values associated with specific documents
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document_uuid:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                  description: "Optional UUID of a document to filter metadata values by. If not provided, all document metadata values will be returned."
+                metadata_uuid:
+                  type: string
+                  example: "abcd1234-e89b-12d3-a456-426614174000"
+                  description: "Optional UUID of a metadata field to filter by. If not provided, values for all metadata fields will be returned."
+      responses:
+        '200':
+          description: Successful response with document metadata values
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusAPI:
+                    type: string
+                    example: "OK"
+                  document_metadatas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        document_metadata_uuid:
+                          type: string
+                          example: "efgh5678-e89b-12d3-a456-426614174000"
+                        document_uuid:
+                          type: string
+                          example: "123e4567-e89b-12d3-a456-426614174000"
+                        document_name:
+                          type: string
+                          example: "Financial Report 2023.pdf"
+                        metadata_uuid:
+                          type: string
+                          example: "abcd1234-e89b-12d3-a456-426614174000"
+                        metadata_name:
+                          type: string
+                          example: "document_category"
+                        metadata_value:
+                          type: string
+                          example: "Financial"
+                        confidence:
+                          type: number
+                          format: float
+                          example: 0.85
+                        creation_date:
+                          type: integer
+                          format: int64
+                          description: Unix timestamp (seconds since epoch)
+                        created_by:
+                          type: string
+                          example: "system"
+                        updated_date:
+                          type: integer
+                          format: int64
+                          description: Unix timestamp (seconds since epoch)
+                        updated_by:
+                          type: string
+                          example: "john.doe@example.com"
+        '400':
+          description: Bad request - Invalid parameters
+        '500':
+          description: Internal server error - Database connection failed
+
+  /rust_document_presigned_url:
+    post:
+      summary: Generate a presigned URL for a document in S3
+      operationId: rustDocumentPresignedUrl
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - document_uuid
+              properties:
+                document_uuid:
+                  type: string
+                  description: UUID of the document to generate a presigned URL for
+                expiration:
+                  type: integer
+                  description: Expiration time in seconds (default is 900 - 15 minutes)
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  presigned_url:
+                    type: string
+                    example: "https://example-bucket.s3.amazonaws.com/path/to/file?X-Amz-Algorithm=..."
+                  document_name:
+                    type: string
+                    example: "example.pdf"
+                  expiration:
+                    type: integer
+                    example: 900
+        '400':
+          description: Bad request
+        '404':
+          description: Document not found
+        '500':
+          description: Internal server error
+          
+  /rust_s3_upload_url:
+    post:
+      summary: Generate a presigned URL for uploading a file to S3
+      operationId: rustS3UploadUrl
+      security:
+        - cognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - file_name
+                - content_type
+              properties:
+                file_name:
+                  type: string
+                  description: The name of the file to upload
+                content_type:
+                  type: string
+                  description: The content type of the file (e.g., application/pdf)
+                expiration:
+                  type: integer
+                  description: Optional expiration time in seconds (default 900 seconds / 15 minutes)
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  presigned_url:
+                    type: string
+                    example: "https://example-bucket.s3.amazonaws.com/uploads/file.pdf?X-Amz-Algorithm=..."
+                  file_name:
+                    type: string
+                    example: "example.pdf"
+                  expiration:
+                    type: integer
+                    example: 900
+                  bucket:
+                    type: string
+                    example: "my-s3-bucket"
+                  key:
+                    type: string
+                    example: "uploads/example.pdf"
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error

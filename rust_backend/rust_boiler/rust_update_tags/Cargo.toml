@@ -1,0 +1,25 @@
+[package]
+name = "rust_update_tags"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+current_platform = "0.2.0"
+lambda_http = "0.8.3"
+lambda_runtime = "0.8.3"
+tokio = { version = "1", features = ["macros"] }
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter"] }
+serde = { version = "1.0", features = ["derive"] }
+jsonschema = "0.18.0"
+serde_json = "1.0.113"
+
+# POSTGRES CONNECTION
+tokio-postgres = { version = "0.7.13", features = ["with-chrono-0_4"] }
+openssl = "0.10"
+postgres-native-tls = "0.5.1"
+native-tls = "0.2"
+
+# AWS CLIENT
+aws-config = "1.5.17"
+aws-sdk-secretsmanager = "1.64.0"

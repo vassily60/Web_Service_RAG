@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Client Request Schema",
+    "description": "Schema for validating client requests with identification and optional metadata",
+    "type": "object",
+    "properties": {
+        "client_id": {
+            "type": "integer",
+            "description": "Unique identifier for the client"
+        },
+        "name": { 
+            "type": "string",
+            "description": "The client's name"
+        },
+        "age": { 
+            "type": "integer",
+            "description": "The client's age",
+            "minimum": 0
+        },
+        "metadata": {
+            "type": "object",
+            "description": "Optional additional client data"
+        }
+    },
+    "required": ["client_id", "name"]
+}
