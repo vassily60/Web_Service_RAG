@@ -1,0 +1,6 @@
+pyaiplatform/
+backend/test/unified/.env
+Database_conn/target
+Database_conn/.env
+backend/rust_backend/rust_boiler/.env
+backend/test/unified/event/
