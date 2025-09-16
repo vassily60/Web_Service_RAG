@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metadata Administration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Additional styles specific to metadata management */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+            padding-bottom: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #eaeaea;
+            border-radius: 5px;
+        }
+        
+        #metadata-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        #metadata-table th,
+        #metadata-table td {
+            min-width: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        
+        #metadata-table th {
+            background-color: #54b6ac;
+            color: white;
+            text-align: left;
+        }
+        
+        #metadata-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        /* Action buttons styling */
+        .action-buttons {
+            margin-bottom: 20px;
+        }
+        
+        .compute-btn {
+            background-color: #9b59b6 !important;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        /* Selected row highlight */
+        #metadata-table tr.selected {
+            background-color: #d5f5e3;
+        }
+        
+        /* Loading message */
+        .loading-message {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+        
+        /* Enhanced Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal.show {
+            opacity: 1;
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 25px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            width: 60%;
+            max-width: 600px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal.show .modal-content {
+            transform: translateY(0);
+        }
+        
+        .close, .close-delete {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .close:hover, .close-delete:hover {
+            color: #333;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        
+        .update-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Metadata Administration</h1>
+        <p>Manage metadata definitions for document categorization and organization.</p>
+        
+        <div class="action-buttons">
+            <button id="add-metadata-btn" class="btn btn-primary">Add Metadata</button>
+            <button id="update-metadata-btn" class="btn btn-info" disabled>Update Selected</button>
+            <button id="delete-metadata-btn" class="btn btn-danger" disabled>Delete Selected</button>
+            <button id="refresh-btn" class="btn btn-secondary">Refresh List</button>
+        </div>
+        
+        <div class="metadata-container">
+            <h2>Metadata Repository</h2>
+            
+            <div class="table-responsive">
+                <table id="metadata-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="metadata-table-body">
+                        <tr>
+                            <td colspan="4" class="loading-message">Loading metadata...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="scroll-instruction">Scroll horizontally to view more columns if needed.</p>
+        </div>
+        
+        <div class="navigation">
+            <button class="btn btn-secondary" onclick="location.href='/welcome'">Back to the Hub</button>
+        </div>
+    </div>
+
+    <!-- Add/Edit Metadata Modal -->
+    <div id="metadata-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-title">Add New Metadata</h2>
+            <form id="metadata-form">
+                <input type="hidden" id="metadata-uuid">
+                
+                <div class="form-group">
+                    <label for="metadata-name">Name:</label>
+                    <input type="text" id="metadata-name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="metadata-description">Description:</label>
+                    <textarea id="metadata-description" class="form-control" rows="3" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="metadata-type">Type:</label>
+                    <select id="metadata-type" class="form-control" required>
+                        <option value="">Select a type</option>
+                        <option value="DATE">DATE</option>
+                        <option value="NUMBER">NUMBER</option>
+                        <option value="INTEGER">INTEGER</option>
+                        <option value="BOOLEAN">BOOLEAN</option>
+                        <option value="STRING">STRING</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary cancel-button">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+            <div id="metadata-update-message" class="update-message"></div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-delete">&times;</span>
+            <h2>Delete Metadata</h2>
+            <p>Are you sure you want to delete the metadata <strong id="delete-metadata-name"></strong>?</p>
+            <div class="form-actions">
+                <button id="cancel-delete" class="btn btn-secondary">Cancel</button>
+                <button id="confirm-delete" class="btn btn-danger">Delete</button>
+            </div>
+            <div id="delete-message" class="update-message"></div>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const metadataTable = document.getElementById('metadata-table');
+        const tableBody = document.getElementById('metadata-table-body');
+        const addBtn = document.getElementById('add-metadata-btn');
+        const updateBtn = document.getElementById('update-metadata-btn');
+        const deleteBtn = document.getElementById('delete-metadata-btn');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const metadataModal = document.getElementById('metadata-modal');
+        const deleteModal = document.getElementById('delete-modal');
+        const modalCloseBtn = document.querySelector('.close');
+        const deleteCloseBtn = document.querySelector('.close-delete');
+        const cancelBtn = document.querySelector('.cancel-button');
+        const cancelDeleteBtn = document.getElementById('cancel-delete');
+        const confirmDeleteBtn = document.getElementById('confirm-delete');
+        const metadataForm = document.getElementById('metadata-form');
+        const modalTitle = document.getElementById('modal-title');
+        const deleteMetadataName = document.getElementById('delete-metadata-name');
+        
+        // Selected metadata tracking
+        let selectedMetadata = null;
+        
+        // Modal helper functions
+        function openModal(modal) {
+            modal.style.display = 'block';
+            // Add the show class after a small delay to trigger the transition
+            setTimeout(() => modal.classList.add('show'), 10);
+        }
+        
+        function closeModal(modal) {
+            modal.classList.remove('show');
+            // Remove the display property after the transition is complete
+            setTimeout(() => modal.style.display = 'none', 300);
+            // Clear any messages
+            const messages = modal.querySelectorAll('.update-message');
+            messages.forEach(msg => msg.textContent = '');
+            messages.forEach(msg => msg.style.color = '');
+        }
+        
+        // Fetch metadata from the API
+        function fetchMetadata() {
+            tableBody.innerHTML = '<tr><td colspan="4" class="loading-message">Loading metadata...</td></tr>';
+            
+            fetch('/api/metadata')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Clear loading message
+                    tableBody.innerHTML = '';
+                    
+                    // Extract the metadatas array from the response
+                    let metadataArray = [];
+                    
+                    if (data && data.metadatas && Array.isArray(data.metadatas)) {
+                        // Use the metadatas array from the response
+                        metadataArray = data.metadatas;
+                    } else if (Array.isArray(data)) {
+                        // If the response is already an array
+                        metadataArray = data;
+                    } else if (data && typeof data === 'object') {
+                        // If it's a single metadata object
+                        metadataArray = [data];
+                    }
+                    
+                    console.log('Metadata array:', metadataArray); // For debugging
+                    
+                    if (metadataArray.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="4">No metadata found</td></tr>';
+                    } else {
+                        // Populate table with metadata data
+                        metadataArray.forEach(item => {
+                            const row = document.createElement('tr');
+                            row.setAttribute('data-uuid', item.metadata_uuid);
+                            row.innerHTML = `
+                                <td>${item.metadata_name || 'N/A'}</td>
+                                <td>${item.metadata_description || 'N/A'}</td>
+                                <td>${item.metadata_type || 'N/A'}</td>
+                                <td>
+                                    <button class="compute-btn" data-uuid="${item.metadata_uuid}">
+                                        Compute
+                                    </button>
+                                </td>
+                            `;
+                            tableBody.appendChild(row);
+                        });
+                        
+                        // Add event listeners to compute buttons
+                        document.querySelectorAll('.compute-btn').forEach(btn => {
+                            btn.addEventListener('click', function(e) {
+                                e.stopPropagation(); // Prevent row selection
+                                const metadataUuid = this.getAttribute('data-uuid');
+                                computeMetadata(metadataUuid);
+                            });
+                        });
+                    }
+                    
+                    // Reset selected metadata
+                    resetSelection();
+                })
+                .catch(error => {
+                    console.error('Error fetching metadata:', error);
+                    tableBody.innerHTML = `<tr><td colspan="4">Error loading metadata: ${error.message}</td></tr>`;
+                });
+        }
+        
+        // Reset selection state
+        function resetSelection() {
+            selectedMetadata = null;
+            updateBtn.disabled = true;
+            deleteBtn.disabled = true;
+            
+            // Remove selected class from all rows
+            const rows = tableBody.querySelectorAll('tr');
+            rows.forEach(row => {
+                row.classList.remove('selected');
+            });
+        }
+        
+        // Select a metadata row
+        function selectRow(row) {
+            // Remove selected class from all rows
+            resetSelection();
+            
+            // Add selected class to clicked row
+            row.classList.add('selected');
+            
+            // Get metadata ID from the row
+            const metadataUuid = row.getAttribute('data-uuid');
+            if (!metadataUuid) return;
+            
+            // Enable update and delete buttons
+            updateBtn.disabled = false;
+            deleteBtn.disabled = false;
+            
+            // Store selected metadata info
+            selectedMetadata = {
+                uuid: metadataUuid,
+                name: row.cells[0].textContent,
+                description: row.cells[1].textContent,
+                type: row.cells[2].textContent
+            };
+        }
+        
+        // Event delegation for row selection
+        metadataTable.addEventListener('click', function(e) {
+            const row = e.target.closest('tr');
+            if (row && row.parentElement.tagName === 'TBODY') {
+                selectRow(row);
+            }
+        });
+        
+        // Modal functionality
+        addBtn.addEventListener('click', function() {
+            // Clear form
+            metadataForm.reset();
+            document.getElementById('metadata-uuid').value = '';
+            
+            // Set modal title
+            modalTitle.textContent = 'Add New Metadata';
+            
+            // Show modal
+            openModal(metadataModal);
+        });
+        
+        updateBtn.addEventListener('click', function() {
+            if (!selectedMetadata) return;
+            
+            // Fill form with selected metadata
+            document.getElementById('metadata-uuid').value = selectedMetadata.uuid;
+            document.getElementById('metadata-name').value = selectedMetadata.name;
+            document.getElementById('metadata-description').value = selectedMetadata.description;
+            document.getElementById('metadata-type').value = selectedMetadata.type;
+            
+            // Set modal title
+            modalTitle.textContent = 'Update Metadata';
+            
+            // Show modal
+            openModal(metadataModal);
+        });
+        
+        deleteBtn.addEventListener('click', function() {
+            if (!selectedMetadata) return;
+            
+            // Show metadata name in confirmation
+            deleteMetadataName.textContent = selectedMetadata.name;
+            
+            // Show delete modal
+            openModal(deleteModal);
+        });
+        
+        // Close buttons functionality
+        modalCloseBtn.addEventListener('click', function() {
+            closeModal(metadataModal);
+        });
+        
+        deleteCloseBtn.addEventListener('click', function() {
+            closeModal(deleteModal);
+        });
+        
+        cancelBtn.addEventListener('click', function() {
+            closeModal(metadataModal);
+        });
+        
+        cancelDeleteBtn.addEventListener('click', function() {
+            closeModal(deleteModal);
+        });
+        
+        // Form submission handling
+        metadataForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const metadataUuid = document.getElementById('metadata-uuid').value;
+            const name = document.getElementById('metadata-name').value;
+            const description = document.getElementById('metadata-description').value;
+            const type = document.getElementById('metadata-type').value;
+            
+            // Prepare request data
+            const data = {
+                metadata_name: name,
+                metadata_description: description,
+                metadata_type: type
+            };
+            
+            // Update message area
+            document.getElementById('metadata-update-message').textContent = 'Saving...';
+            document.getElementById('metadata-update-message').style.color = 'blue';
+            
+            let url, method;
+            
+            if (metadataUuid) {
+                // Update existing metadata
+                url = `/api/metadata/${metadataUuid}`;
+                method = 'PUT';
+                data.metadata_uuid = metadataUuid;
+            } else {
+                // Add new metadata
+                url = '/api/metadata';
+                method = 'POST';
+            }
+            
+            // Send request to API
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status}`);
+                }
+                // Check content-type to determine how to parse the response
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    // If not JSON, return text and convert it to an object
+                    return response.text().then(text => {
+                        try {
+                            // Try to parse it as JSON anyway
+                            return JSON.parse(text);
+                        } catch (e) {
+                            // If parsing fails, return a simple object
+                            return { message: text };
+                        }
+                    });
+                }
+            })
+            .then(result => {
+                console.log('API response:', result);
+                
+                // Show success message
+                document.getElementById('metadata-update-message').textContent = 'Metadata saved successfully!';
+                document.getElementById('metadata-update-message').style.color = 'green';
+                
+                // Close modal after delay
+                setTimeout(() => {
+                    closeModal(metadataModal);
+                    // Refresh metadata list
+                    fetchMetadata();
+                }, 1500);
+            })
+            .catch(error => {
+                console.error('Error saving metadata:', error);
+                document.getElementById('metadata-update-message').textContent = `Error: ${error.message}`;
+                document.getElementById('metadata-update-message').style.color = 'red';
+            });
+        });
+        
+        // Delete confirmation handling
+        confirmDeleteBtn.addEventListener('click', function() {
+            if (!selectedMetadata) return;
+            
+            // Update message
+            document.getElementById('delete-message').textContent = 'Deleting...';
+            document.getElementById('delete-message').style.color = 'blue';
+            
+            // Send delete request to API
+            fetch(`/api/metadata/${selectedMetadata.uuid}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                // Show success message
+                document.getElementById('delete-message').textContent = 'Metadata deleted successfully!';
+                document.getElementById('delete-message').style.color = 'green';
+                
+                // Close modal after delay
+                setTimeout(() => {
+                    closeModal(deleteModal);
+                    // Refresh metadata list
+                    fetchMetadata();
+                }, 1500);
+            })
+            .catch(error => {
+                console.error('Error deleting metadata:', error);
+                document.getElementById('delete-message').textContent = `Error: ${error.message}`;
+                document.getElementById('delete-message').style.color = 'red';
+            });
+        });
+        
+        // Compute metadata function
+        function computeMetadata(metadataUuid) {
+            if (!metadataUuid) {
+                console.error('No metadata UUID provided');
+                return;
+            }
+            
+            // Find the button that was clicked and update its text
+            const btn = document.querySelector(`.compute-btn[data-uuid="${metadataUuid}"]`);
+            const originalText = btn.textContent;
+            btn.textContent = 'Computing...';
+            btn.disabled = true;
+            
+            // Call the compute metadata web service
+            fetch('/api/compute-metadata', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    metadata_uuid: metadataUuid
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('Compute result:', result);
+                
+                // Show temporary success indicator
+                btn.textContent = '✓ Success';
+                btn.style.backgroundColor = '#2ecc71';
+                
+                // Revert button after delay
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.backgroundColor = '#9b59b6';
+                    btn.disabled = false;
+                }, 2000);
+            })
+            .catch(error => {
+                console.error('Error computing metadata:', error);
+                
+                // Show temporary error indicator
+                btn.textContent = '✗ Error';
+                btn.style.backgroundColor = '#e74c3c';
+                
+                // Revert button after delay
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.backgroundColor = '#9b59b6';
+                    btn.disabled = false;
+                }, 2000);
+            });
+        }
+
+        // Refresh functionality
+        refreshBtn.addEventListener('click', fetchMetadata);
+        
+        // Close modal when clicking outside of it
+        window.addEventListener('click', function(e) {
+            if (e.target === metadataModal) {
+                closeModal(metadataModal);
+            }
+            if (e.target === deleteModal) {
+                closeModal(deleteModal);
+            }
+        });
+        
+        // Load metadata when page is loaded
+        document.addEventListener('DOMContentLoaded', fetchMetadata);
+    </script>
+</body>
+</html>

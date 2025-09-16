@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Documents</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_documents.css') }}">
+    <style>
+        /* Additional styles for the tags functionality */
+        .edit-tags-btn {
+            background-color: #4a6fa5;
+            color: white;
+        }
+        
+        /* View document button style */
+        .view-document-btn {
+            background-color: #2e8b57;
+            color: white;
+        }
+        
+        /* Upload button style */
+        .upload-btn {
+            background-color: #4169e1; /* Royal Blue */
+            color: white;
+            margin-left: 10px;
+        }
+        
+        /* Loading indicator for document viewing */
+        .loading-indicator {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Toast notification for document viewing */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 9999;
+            animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+            opacity: 0;
+            animation-fill-mode: forwards;
+        }
+        
+        .toast-success {
+            background-color: #28a745;
+        }
+        
+        .toast-error {
+            background-color: #dc3545;
+        }
+        
+        .toast-info {
+            background-color: #17a2b8;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        .update-message {
+            margin-top: 15px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .help-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .tags-column {
+            max-width: none;
+            white-space: normal;
+            word-break: break-word;
+        }
+        
+        /* Enhanced table scrolling styles */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+            padding-bottom: 15px; /* Space for the scrollbar */
+            margin-bottom: 10px;
+            border: 1px solid #eaeaea;
+            border-radius: 5px;
+        }
+        
+        /* Adjust column widths for better display */
+        #documents-table th,
+        #documents-table td {
+            min-width: 100px; /* Set minimum width for columns */
+        }
+        
+        /* Specific widths for certain columns */
+        #documents-table th:nth-child(1),
+        #documents-table td:nth-child(1) {
+            min-width: 40px;
+            width: 40px;
+        }
+        
+        #documents-table th:nth-child(2),
+        #documents-table td:nth-child(2) {
+            min-width: 180px; /* UUID needs more space */
+        }
+        
+        #documents-table th:nth-child(7),
+        #documents-table td:nth-child(7) {
+            min-width: 150px; /* Tags column */
+        }
+        
+        #documents-table th:nth-child(9),
+        #documents-table td:nth-child(9) {
+            min-width: 210px;
+            width: 210px;
+            white-space: nowrap;
+        }
+        
+        /* Metadata column styling */
+        .metadata-column {
+            max-width: 250px;
+            white-space: normal;
+            word-break: break-word;
+            position: relative;
+        }
+        
+        .metadata-column div {
+            margin-bottom: 4px;
+            padding: 3px;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        
+        /* Expandable metadata styling */
+        .metadata-preview {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .expand-metadata {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 24px;
+            height: 24px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 50%;
+            margin-right: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        
+        .expand-metadata.expanded {
+            transform: rotate(45deg);
+            background-color: #e74c3c;
+        }
+        
+        .metadata-preview-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .metadata-full {
+            display: none;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            margin-top: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .metadata-full.visible {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .metadata-column div:last-child {
+            margin-bottom: 0;
+        }
+        
+        .metadata-column strong {
+            color: #29235c;
+        }
+        
+        /* Style the scrollbar for better visibility */
+        .table-responsive::-webkit-scrollbar {
+            height: 12px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #3498db;
+            border-radius: 10px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: #2980b9;
+        }
+        
+        /* Ensure the action buttons column is wide enough and doesn't wrap */
+        #documents-table th:last-child,
+        #documents-table td:last-child {
+            min-width: 210px;
+            white-space: nowrap;
+            background-color: #f9f9f9; /* Highlight action column */
+        }
+        
+        /* Add some spacing between action buttons */
+        td .small-button {
+            margin-right: 5px;
+            min-width: 60px; /* Ensure buttons have minimum width */
+        }
+        
+        /* Add visual indicator for horizontal scrolling */
+        .scroll-indicator {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #3498db;
+            font-size: 24px;
+            animation: pulse 1.5s infinite;
+            display: none;
+            z-index: 10;
+        }
+        
+        /* Add left scroll indicator */
+        .scroll-indicator-left {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #3498db;
+            font-size: 24px;
+            animation: pulse 1.5s infinite;
+            display: none;
+            z-index: 10;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+        
+        /* Show scroll indicators when table is wider than container */
+        .table-responsive.scrollable .scroll-indicator,
+        .table-responsive.scrollable-left .scroll-indicator-left {
+            display: block;
+        }
+        
+        /* Style the small action buttons to be more visible */
+        .view-btn {
+            background-color: #2ecc71;
+        }
+        
+        .edit-btn {
+            background-color: #f39c12;
+        }
+        
+        /* Scroll instruction text */
+        .scroll-instruction {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.85em;
+            margin-top: 5px;
+            font-style: italic;
+            display: none;
+        }
+        
+        .table-responsive.scrollable ~ .scroll-instruction {
+            display: block;
+        }
+        
+        /* Update the loading message */
+        .loading-message {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+        
+        /* Metadata filters styling */
+        #metadata-filters {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border: 1px solid #e0e0e0;
+            width: 100%;
+        }
+        
+        #metadata-filters h3 {
+            margin-top: 0;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        .filter-instructions {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        
+        .metadata-filter-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .metadata-filter-row select, 
+        .metadata-filter-row input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        .remove-filter {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #add-metadata-filter {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            font-size: 0.9em;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        
+        #apply-filters, #clear-filters {
+            margin-left: 5px;
+            padding: 5px 10px;
+            font-size: 0.9em;
+        }
+        
+        #add-metadata-filter:disabled, #apply-filters:disabled, #clear-filters:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        /* Filter notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #54b6ac;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            animation: fadeInOut 3s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        .filter-status {
+            margin-top: 10px;
+            color: #54b6ac;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Document Administration</h1>
+        <p>Manage your organization's document repository. Review documents in the system.</p>
+        
+        <div class="action-buttons">
+            <button id="refresh-btn">Refresh List</button>
+            <button id="upload-btn" class="upload-btn">Upload</button>
+            <input type="file" id="file-input" style="display: none">
+        </div>
+        
+        <!-- Add Metadata Filter Section -->
+        <div id="metadata-filters">
+            <h3>Metadata Filters</h3>
+            <p class="filter-instructions">Filter documents by their metadata properties. Add multiple filters to refine your view.</p>
+            <div id="metadata-filters-container"></div>
+            <button type="button" id="add-metadata-filter" class="btn btn-small" disabled>Add Metadata Filter</button>
+            <button type="button" id="apply-filters" class="btn btn-primary" disabled>Apply Filters</button>
+            <button type="button" id="clear-filters" class="btn btn-secondary" disabled>Clear Filters</button>
+        </div>
+        
+        <div class="documents-container">
+            <h2>Document Repository</h2>
+            
+            <div class="table-responsive">
+                <span class="scroll-indicator">→</span>
+                <span class="scroll-indicator-left">←</span>
+                <table id="documents-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="select-all"></th>
+                            <th>Document Name</th>
+                            <th>Date Added</th>
+                            <th>Tags</th>
+                            <th>Metadata</th>
+                            <th>Actions</th>
+                            <th style="display: none;">Document UUID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="documents-table-body">
+                        <tr>
+                            <td colspan="7" class="loading-message">Loading documents...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="scroll-instruction">Scroll horizontally to view more columns.</p>
+        </div>
+        
+        <div class="bi-link">
+            <h3>Business Intelligence Dashboard</h3>
+            <p>Access detailed analytics and reports on document usage and engagement.</p>
+            <a href="{{ superset_url }}" class="bi-button" target="_blank" rel="noopener noreferrer">Open BI Dashboard</a>
+        </div>
+        
+        <div class="navigation">
+            <button onclick="location.href='/welcome'">Back to Welcome Page</button>
+        </div>
+    </div>
+
+    <!-- Add Edit Tags Modal -->
+    <div id="edit-tags-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-tags">&times;</span>
+            <h2>Edit Document Tags</h2>
+            <form id="edit-tags-form">
+                <input type="hidden" id="edit-document-uuid">
+                
+                <div class="form-group">
+                    <label for="document-tags">Tags (comma-separated):</label>
+                    <input type="text" id="document-tags" placeholder="e.g., financial, report, 2023" required>
+                </div>
+                
+                <div class="form-group">
+                    <p class="help-text">Enter tags separated by commas. Tags will help categorize and search for documents.</p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">Update Tags</button>
+                    <button type="button" class="cancel-tags-button">Cancel</button>
+                </div>
+            </form>
+            <div id="tags-update-message" class="update-message"></div>
+        </div>
+    </div>
+
+    <script>
+        // Store available metadata fields
+        let metadataFieldsList = [];
+        let activeMetadataFilters = [];
+
+        // Initialize when page is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchMetadataFields();
+            
+            // Add event listeners for metadata filter buttons
+            document.getElementById('add-metadata-filter').addEventListener('click', addMetadataFilterRow);
+            document.getElementById('apply-filters').addEventListener('click', applyMetadataFilters);
+            document.getElementById('clear-filters').addEventListener('click', clearMetadataFilters);
+        });
+        
+        // Fetch metadata fields from the API
+        function fetchMetadataFields() {
+            fetch('/api/metadata')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.metadatas && Array.isArray(data.metadatas)) {
+                        metadataFieldsList = data.metadatas;
+                    } else if (Array.isArray(data)) {
+                        metadataFieldsList = data;
+                    }
+                    
+                    if (metadataFieldsList.length === 0) {
+                        // Handle case where no metadata fields are available
+                        document.getElementById('metadata-filters').innerHTML = 
+                            '<h3>Metadata Filters</h3>' +
+                            '<p class="filter-instructions">No metadata fields are available. Contact an administrator to set up metadata fields.</p>';
+                    } else {
+                        console.log('Available metadata fields:', metadataFieldsList);
+                        // Enable the filter buttons if fields are available
+                        document.getElementById('add-metadata-filter').disabled = false;
+                        document.getElementById('apply-filters').disabled = false;
+                        document.getElementById('clear-filters').disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching metadata fields:', error);
+                    document.getElementById('metadata-filters').innerHTML = 
+                        '<h3>Metadata Filters</h3>' +
+                        '<p class="filter-instructions">Error loading metadata fields: ' + error.message + '</p>';
+                });
+        }
+        
+        // Add new metadata filter row
+        function addMetadataFilterRow() {
+            const container = document.getElementById('metadata-filters-container');
+            const rowId = Date.now(); // Unique ID for this filter row
+            
+            const filterRow = document.createElement('div');
+            filterRow.className = 'metadata-filter-row';
+            filterRow.dataset.id = rowId;
+            
+            // Create metadata field selector
+            const fieldSelect = document.createElement('select');
+            fieldSelect.className = 'metadata-field';
+            fieldSelect.setAttribute('required', true);
+            
+            // Add empty default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select a field';
+            fieldSelect.appendChild(defaultOption);
+            
+            // Add options from metadataFieldsList
+            metadataFieldsList.forEach(field => {
+                const option = document.createElement('option');
+                option.value = field.metadata_uuid;
+                option.textContent = field.metadata_name;
+                option.dataset.type = field.metadata_type;
+                fieldSelect.appendChild(option);
+            });
+            
+            // Create operator selector
+            const operatorSelect = document.createElement('select');
+            operatorSelect.className = 'metadata-operator';
+            
+            // Add operator options
+            const operators = [
+                { value: 'eq', text: 'Equal to' },
+                { value: 'neq', text: 'Not equal to' },
+                { value: 'contains', text: 'Contains' },
+                { value: 'not_contains', text: 'Does not contain' },
+                { value: 'gt', text: 'Greater than' },
+                { value: 'lt', text: 'Less than' },
+                { value: 'gte', text: 'Greater than or equal to' },
+                { value: 'lte', text: 'Less than or equal to' }
+            ];
+            
+            operators.forEach(op => {
+                const option = document.createElement('option');
+                option.value = op.value;
+                option.textContent = op.text;
+                operatorSelect.appendChild(option);
+            });
+            
+            // Create value input
+            const valueInput = document.createElement('input');
+            valueInput.type = 'text';
+            valueInput.className = 'metadata-value';
+            valueInput.placeholder = 'Value';
+            
+            // Create remove button
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'remove-filter';
+            removeButton.textContent = '×';
+            removeButton.addEventListener('click', function() {
+                container.removeChild(filterRow);
+            });
+            
+            // Add change listener to field select to update input type
+            fieldSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const fieldType = selectedOption.dataset.type;
+                
+                // Update input type based on metadata field type
+                if (fieldType === 'DATE') {
+                    valueInput.type = 'date';
+                } else if (fieldType === 'NUMBER' || fieldType === 'INTEGER') {
+                    valueInput.type = 'number';
+                    if (fieldType === 'INTEGER') {
+                        valueInput.step = '1';
+                    }
+                } else if (fieldType === 'BOOLEAN') {
+                    valueInput.type = 'checkbox';
+                } else {
+                    valueInput.type = 'text';
+                }
+                
+                // Update available operators based on field type
+                operatorSelect.innerHTML = '';
+                
+                let availableOperators;
+                if (fieldType === 'BOOLEAN') {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' }
+                    ];
+                } else if (fieldType === 'DATE' || fieldType === 'NUMBER' || fieldType === 'INTEGER') {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' },
+                        { value: 'gt', text: 'Greater than' },
+                        { value: 'lt', text: 'Less than' },
+                        { value: 'gte', text: 'Greater than or equal to' },
+                        { value: 'lte', text: 'Less than or equal to' }
+                    ];
+                } else {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' },
+                        { value: 'contains', text: 'Contains' },
+                        { value: 'not_contains', text: 'Does not contain' }
+                    ];
+                }
+                
+                availableOperators.forEach(op => {
+                    const option = document.createElement('option');
+                    option.value = op.value;
+                    option.textContent = op.text;
+                    operatorSelect.appendChild(option);
+                });
+            });
+            
+            // Add elements to row
+            filterRow.appendChild(fieldSelect);
+            filterRow.appendChild(operatorSelect);
+            filterRow.appendChild(valueInput);
+            filterRow.appendChild(removeButton);
+            
+            // Add row to container
+            container.appendChild(filterRow);
+        }
+        
+        // Function to validate a date string format (YYYY-MM-DD)
+        function isValidDateFormat(dateString) {
+            const regex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!regex.test(dateString)) return false;
+            
+            const date = new Date(dateString);
+            const timestamp = date.getTime();
+            if (isNaN(timestamp)) return false;
+            
+            return date.toISOString().slice(0, 10) === dateString;
+        }
+        
+        // Collect and validate metadata filters
+        function collectMetadataFilters() {
+            const filters = [];
+            const filterRows = document.querySelectorAll('.metadata-filter-row');
+            
+            filterRows.forEach(row => {
+                const fieldSelect = row.querySelector('.metadata-field');
+                const operatorSelect = row.querySelector('.metadata-operator');
+                const valueInput = row.querySelector('.metadata-value');
+                
+                if (fieldSelect.value && operatorSelect.value) {
+                    // Get the metadata field details
+                    const selectedOption = fieldSelect.options[fieldSelect.selectedIndex];
+                    const fieldName = selectedOption.textContent;
+                    const fieldType = selectedOption.dataset.type;
+                    
+                    // Get the value based on input type and convert to appropriate type
+                    let value;
+                    if (valueInput.type === 'checkbox') {
+                        value = valueInput.checked; // Boolean
+                    } else if (valueInput.type === 'number') {
+                        // Convert to number type (float or integer)
+                        const numValue = parseFloat(valueInput.value);
+                        if (!isNaN(numValue)) {
+                            if (fieldType === 'INTEGER') {
+                                value = parseInt(valueInput.value, 10); // Integer
+                            } else {
+                                value = numValue; // Float
+                            }
+                        } else {
+                            value = null; // Invalid number input
+                        }
+                    } else if (valueInput.type === 'date' && fieldType === 'DATE') {
+                        // For date inputs, ensure we have a valid date format
+                        if (valueInput.value && isValidDateFormat(valueInput.value)) {
+                            value = valueInput.value; // ISO format date string (YYYY-MM-DD)
+                            console.log(`Using date value for ${fieldName}: ${value}`);
+                        } else {
+                            console.warn(`Invalid or empty date value for ${fieldName}`);
+                            value = null;
+                        }
+                    } else {
+                        value = valueInput.value; // String
+                    }
+                    
+                    // Only add the filter if we have a value
+                    if (value !== undefined && value !== null && value !== '') {
+                        filters.push({
+                            metadata_uuid: fieldSelect.value,
+                            metadata_name: fieldName,
+                            metadata_type: fieldType,
+                            operator: operatorSelect.value,
+                            value: value // Now properly typed
+                        });
+                    }
+                }
+            });
+            
+            return filters;
+        }
+        
+        // Apply metadata filters to the document list
+        function applyMetadataFilters() {
+            activeMetadataFilters = collectMetadataFilters();
+            
+            // Debug log to verify filter values and their types
+            activeMetadataFilters.forEach(filter => {
+                console.log(`Metadata filter: ${filter.metadata_name}, Value: ${filter.value}, Type: ${typeof filter.value}`);
+            });
+            
+            console.log('Applied metadata filters:', activeMetadataFilters);
+            
+            if (activeMetadataFilters.length > 0) {
+                // Refresh the document list with filters
+                fetchDocuments(activeMetadataFilters);
+                // Update filter status display
+                const filterStatus = document.createElement('div');
+                filterStatus.className = 'filter-status';
+                filterStatus.textContent = `Active filters: ${activeMetadataFilters.length}`;
+                
+                // Show a brief notification
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.textContent = 'Filters applied successfully';
+                document.body.appendChild(notification);
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 3000);
+            } else {
+                alert('Please add at least one valid filter before applying.');
+            }
+        }
+        
+        // Clear all metadata filters
+        function clearMetadataFilters() {
+            document.getElementById('metadata-filters-container').innerHTML = '';
+            activeMetadataFilters = [];
+            fetchDocuments(); // Refresh without filters
+        }
+        
+        // Function to process documents data (shared between filtered and unfiltered results)
+        function processDocumentsData(data) {
+            const tableBody = document.getElementById('documents-table-body');
+            
+            // Check if we have documents
+            if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="7">No documents found</td></tr>';
+                return;
+            }
+            
+            // Now fetch metadata values for all documents
+            fetch('/api/document-metadatas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({}) // Empty request to get all document metadata
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch document metadata');
+                }
+                return response.json();
+            })
+            .then(metadataResponse => {
+                displayDocumentsWithMetadata(data.documents, metadataResponse);
+            })
+            .catch(error => {
+                console.error('Error fetching document metadata:', error);
+                displayDocumentsWithoutMetadata(data.documents);
+            });
+        }
+        
+        // Display documents with metadata
+        function displayDocumentsWithMetadata(documents, metadataResponse) {
+            const tableBody = document.getElementById('documents-table-body');
+            
+            // Create a map of document_uuid to metadata_values for quick lookup
+            const metadataMap = {};
+            if (metadataResponse && 
+                metadataResponse.document_metadatas && 
+                Array.isArray(metadataResponse.document_metadatas)) {
+                
+                metadataResponse.document_metadatas.forEach(item => {
+                    metadataMap[item.document_uuid] = item.metadata_values;
+                });
+            }
+            
+            console.log('Metadata map:', metadataMap);
+            
+            // Clear table body
+            tableBody.innerHTML = '';
+            
+            // Display the documents
+            renderDocumentRows(documents, metadataMap);
+        }
+        
+        // Display documents without metadata (fallback)
+        function displayDocumentsWithoutMetadata(documents) {
+            const tableBody = document.getElementById('documents-table-body');
+            tableBody.innerHTML = '';
+            renderDocumentRows(documents, {});
+        }
+        
+        // Function to fetch documents from the API
+        function fetchDocuments(filters = []) {
+            const tableBody = document.getElementById('documents-table-body');
+            tableBody.innerHTML = '<tr><td colspan="7" class="loading-message">Loading documents...</td></tr>';
+
+            // Create request payload
+            const requestData = {
+                client_id: 22 // Default client ID
+            };
+
+            // Add metadata filters if present
+            if (filters && filters.length > 0) {
+                requestData.document_filters = filters.map(filter => {
+                    // Log the actual type of the value
+                    console.log(`Filter value for ${filter.metadata_name}: ${filter.value} (${typeof filter.value})`);
+                    
+                    // Special handling for different metadata types
+                    let filterValue = filter.value;
+                    
+                    // Ensure date values are properly formatted for the backend
+                    if (filter.metadata_type === 'DATE' && typeof filterValue === 'string') {
+                        // The value is already in YYYY-MM-DD format from the date input
+                        console.log(`Sending date filter for ${filter.metadata_name}: ${filterValue}`);
+                    }
+                    
+                    return {
+                        filter_type: "metadata",
+                        filter_value: JSON.stringify({
+                            metadata_uuid: filter.metadata_uuid,
+                            operator: filter.operator,
+                            value: filterValue
+                        })
+                    };
+                });
+                console.log('Document filters being sent to API:', requestData.document_filters);
+            }
+
+            // First, fetch the list of documents with filters if any
+            fetch('/api/document-list', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    console.log('Response status from API:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    // Store the documents data for later use
+                    if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="7">No documents found</td></tr>';
+                        return;
+                    }
+                    
+                    // Now fetch metadata values for all documents
+                    return fetch('/api/document-metadatas', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({}) // Empty request to get all document metadata
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch document metadata');
+                        }
+                        return response.json();
+                    })
+                    .then(metadataResponse => {
+                        // Debug: Log the entire metadata response
+                        console.log('DEBUG - Raw metadata response:', metadataResponse);
+                        
+                        // Create a map of document_uuid to metadata_values for quick lookup
+                        const metadataMap = {};
+                        if (metadataResponse && 
+                            metadataResponse.document_metadatas && 
+                            Array.isArray(metadataResponse.document_metadatas)) {
+                            
+                            // Debug: Log each document's metadata
+                            metadataResponse.document_metadatas.forEach(item => {
+                                console.log(`DEBUG - Raw metadata for document ${item.document_uuid}:`, item.metadata_values);
+                                metadataMap[item.document_uuid] = item.metadata_values;
+                            });
+                        }
+                        
+                        // Display all documents with metadata
+                        renderDocumentRows(data.documents, metadataMap);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    tableBody.innerHTML = `<tr><td colspan="7">Error loading documents: ${error.message}</td></tr>`;
+                });
+        }
+
+        // Load documents when page is loaded
+        document.addEventListener('DOMContentLoaded', () => fetchDocuments());
+        
+        // Refresh button functionality
+        document.getElementById('refresh-btn').addEventListener('click', () => {
+            // Use active filters when refreshing
+            fetchDocuments(activeMetadataFilters);
+        });
+        
+        // Upload button functionality
+        document.getElementById('upload-btn').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+        
+        // File input change handler
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            if (!e.target.files.length) return;
+            
+            const file = e.target.files[0];
+            
+            // Show loading toast
+            showToast('Preparing to upload...', 'info');
+            
+            // Get file name and content type
+            const fileName = file.name;
+            const contentType = file.type;
+            
+            // Request presigned URL from server
+            fetch('/api/s3-upload-url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    file_name: fileName,
+                    content_type: contentType
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.error('API error response body:', text);
+                        throw new Error(`HTTP error! Status: ${response.status}, Message: ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status !== 'success') {
+                    throw new Error(data.message || 'Failed to get upload URL');
+                }
+                
+                console.log('Received presigned URL data:', data);
+                
+                if (!data.presigned_url || data.presigned_url.trim() === '') {
+                    throw new Error('Received empty presigned URL');
+                }
+                
+                showToast('Uploading file...', 'info');
+                
+                // Use the presigned URL to upload the file directly to S3
+                // Use XMLHttpRequest instead of fetch for better compatibility with S3 presigned URLs
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    
+                    xhr.open('PUT', data.presigned_url);
+                    xhr.setRequestHeader('Content-Type', contentType);
+                    // For PUT requests to S3, we need to handle CORS properly
+                    xhr.withCredentials = false; // Important for cross-origin requests to S3
+                    
+                    xhr.onload = function() {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve({
+                                ok: true,
+                                status: xhr.status,
+                                statusText: xhr.statusText
+                            });
+                        } else {
+                            reject(new Error(`Upload failed with status: ${xhr.status}, Response: ${xhr.responseText || xhr.statusText}`));
+                        }
+                    };
+                    
+                    xhr.onerror = function() {
+                        console.error('XHR error:', xhr);
+                        // More specific error handling for CORS issues
+                        if (xhr.status === 0) {
+                            reject(new Error('CORS error: Access to the resource has been blocked by CORS policy. Please ensure S3 bucket CORS configuration allows requests from this origin.'));
+                        } else {
+                            reject(new Error('Network error during upload'));
+                        }
+                    };
+                    
+                    xhr.upload.onprogress = function(e) {
+                        if (e.lengthComputable) {
+                            const percentComplete = Math.round((e.loaded / e.total) * 100);
+                            console.log(`Upload progress: ${percentComplete}%`);
+                            // You can update a progress bar here if you have one
+                        }
+                    };
+                    
+                    xhr.send(file);
+                })
+                .then(uploadResponse => {
+                    if (!uploadResponse.ok) {
+                        console.error('S3 upload response:', uploadResponse);
+                        return uploadResponse.text().then(text => {
+                            console.error('S3 upload error response body:', text);
+                            throw new Error(`Upload failed! Status: ${uploadResponse.status}, Message: ${text}`);
+                        });
+                    }
+                    
+                    // Show success message
+                    showToast(`File ${fileName} uploaded successfully!`, 'success');
+                    
+                    // Clear the file input for future uploads
+                    e.target.value = '';
+                    
+                    // Refresh the document list after successful upload
+                    setTimeout(() => fetchDocuments(activeMetadataFilters), 2000);
+                });
+            })
+            .catch(error => {
+                console.error('Error during upload process:', error);
+                
+                // Check for different error types and provide specific guidance
+                if (error.message.includes('CORS') || error.message === 'Network error during upload' || error.message === 'Failed to fetch') {
+                    showToast('Upload failed due to CORS restrictions. Your administrator needs to update the S3 bucket CORS settings to allow requests from ' + window.location.origin + '. Check browser console for details.', 'error');
+                    
+                    console.warn('=== S3 CORS Configuration Guide ===');
+                    console.warn('Add this CORS configuration to your S3 bucket:');
+                    console.warn(JSON.stringify({
+                        CORSRules: [{
+                            AllowedOrigins: [window.location.origin],
+                            AllowedHeaders: ["*"],
+                            AllowedMethods: ["GET", "PUT", "POST", "DELETE", "HEAD"],
+                            MaxAgeSeconds: 3000,
+                            ExposeHeaders: ["ETag"]
+                        }]
+                    }, null, 2));
+                    console.warn('Using AWS CLI: aws s3api put-bucket-cors --bucket ' + (data ? data.bucket : 'paloit-cve') + ' --cors-configuration file://cors-config.json');
+                } else {
+                    showToast(`Upload failed: ${error.message}`, 'error');
+                }
+                
+                // Clear the file input
+                e.target.value = '';
+            });
+        });
+        
+        // Select all functionality
+        document.getElementById('select-all').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.document-checkbox');
+            for (let checkbox of checkboxes) {
+                checkbox.checked = this.checked;
+            }
+        });
+
+        // Edit Tags Modal functionality
+        const editTagsModal = document.getElementById('edit-tags-modal');
+        const closeTagsBtn = document.querySelector('.close-tags');
+        const cancelTagsBtn = document.querySelector('.cancel-tags-button');
+        
+        closeTagsBtn.onclick = function() {
+            editTagsModal.style.display = 'none';
+        }
+        
+        cancelTagsBtn.onclick = function() {
+            editTagsModal.style.display = 'none';
+        }
+        
+        // Add event delegation for edit tags buttons
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('edit-tags-btn')) {
+                const documentUuid = e.target.getAttribute('data-uuid');
+                const currentTags = e.target.getAttribute('data-tags');
+                
+                // Set values in the edit tags modal
+                document.getElementById('edit-document-uuid').value = documentUuid;
+                document.getElementById('document-tags').value = currentTags;
+                
+                // Show the modal
+                editTagsModal.style.display = 'block';
+                
+                // Clear any previous messages
+                document.getElementById('tags-update-message').textContent = '';
+            }
+        });
+        
+        document.getElementById('edit-tags-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const documentUuid = document.getElementById('edit-document-uuid').value;
+            const tagsInput = document.getElementById('document-tags').value;
+            
+            // Convert comma-separated string to array, trim whitespace from each tag
+            const tagsArray = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+            
+            // Prepare the request data
+            const requestData = {
+                document_uuid: documentUuid,
+                tags: tagsArray
+            };
+            
+            // Show a loading message
+            document.getElementById('tags-update-message').textContent = 'Updating tags...';
+            
+            try {
+                // Call the update tags API endpoint
+                const response = await fetch('/update-document-tags', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} - ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                
+                // Show success message
+                document.getElementById('tags-update-message').textContent = 'Tags updated successfully!';
+                document.getElementById('tags-update-message').style.color = 'green';
+                
+                // Hide the modal after a short delay
+                setTimeout(() => {
+                    editTagsModal.style.display = 'none';
+                    
+                    // Refresh the document list to show updated tags
+                    fetchDocuments();
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Error updating tags:', error);
+                document.getElementById('tags-update-message').textContent = `Error updating tags: ${error.message}`;
+                document.getElementById('tags-update-message').style.color = 'red';
+            }
+        });
+        
+        // Function to check if table requires horizontal scrolling and update UI accordingly
+        function checkTableScroll() {
+            const tableResponsive = document.querySelector('.table-responsive');
+            const table = document.getElementById('documents-table');
+            
+            if (tableResponsive && table) {
+                if (table.offsetWidth > tableResponsive.offsetWidth) {
+                    tableResponsive.classList.add('scrollable');
+                    
+                    // Check scroll position for left indicator
+                    if (tableResponsive.scrollLeft > 10) {
+                        tableResponsive.classList.add('scrollable-left');
+                    } else {
+                        tableResponsive.classList.remove('scrollable-left');
+                    }
+                } else {
+                    tableResponsive.classList.remove('scrollable');
+                    tableResponsive.classList.remove('scrollable-left');
+                }
+            }
+        }
+        
+        // Add scroll event listener to show/hide left indicator based on scroll position
+        document.addEventListener('DOMContentLoaded', function() {
+            const tableResponsive = document.querySelector('.table-responsive');
+            if (tableResponsive) {
+                tableResponsive.addEventListener('scroll', function() {
+                    const maxScroll = tableResponsive.scrollWidth - tableResponsive.clientWidth;
+                    
+                    // Show left arrow when scrolled
+                    if (tableResponsive.scrollLeft > 10) {
+                        tableResponsive.classList.add('scrollable-left');
+                    } else {
+                        tableResponsive.classList.remove('scrollable-left');
+                    }
+                    
+                    // Hide right arrow when reached end
+                    if (maxScroll - tableResponsive.scrollLeft < 10) {
+                        tableResponsive.classList.remove('scrollable');
+                    } else if (tableResponsive.scrollWidth > tableResponsive.clientWidth) {
+                        tableResponsive.classList.add('scrollable');
+                    }
+                });
+            }
+            
+            // We don't need to call fetchDocuments here, it's already called in the DOMContentLoaded event at the end of the script
+            // Check scroll after a delay to ensure content is loaded
+            setTimeout(checkTableScroll, 500);
+        });
+        
+        // Also check when window is resized
+        window.addEventListener('resize', checkTableScroll);
+        
+        // Update the fetchDocuments function to check for scrolling after loading
+        const originalFetchDocuments = fetchDocuments;
+        fetchDocuments = function(filters = []) {
+            originalFetchDocuments(filters);
+            // Check after content is loaded
+            setTimeout(checkTableScroll, 500);
+        };
+
+        // Handle Compute Metadata button clicks
+        document.addEventListener('click', async function(e) {
+            if (e.target && e.target.classList.contains('compute-metadata-btn')) {
+                const documentUuid = e.target.getAttribute('data-uuid');
+                const button = e.target;
+                
+                // Disable the button and change text to show progress
+                button.disabled = true;
+                button.textContent = 'Computing...';
+                
+                try {
+                    // Call the API endpoint to compute metadata for this document
+                    const response = await fetch('/api/compute-document-metadata', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ document_uuid: documentUuid })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Show success briefly on the button
+                        button.textContent = 'Success!';
+                        button.style.backgroundColor = '#2ecc71';
+                        
+                        // After a delay, reset and refresh the document list
+                        setTimeout(() => {
+                            button.textContent = 'Compute Metadata';
+                            button.disabled = false;
+                            button.style.backgroundColor = '';
+                            
+                            // Refresh the document list to show updated metadata
+                            fetchDocuments(activeMetadataFilters);
+                        }, 2000);
+                    } else {
+                        throw new Error(result.message || 'Unknown error');
+                    }
+                } catch (error) {
+                    console.error('Error computing metadata:', error);
+                    button.textContent = 'Error!';
+                    button.style.backgroundColor = '#e74c3c';
+                    
+                    // After a delay, reset the button
+                    setTimeout(() => {
+                        button.textContent = 'Compute Metadata';
+                        button.disabled = false;
+                        button.style.backgroundColor = '';
+                    }, 2000);
+                }
+            }
+            
+            // Toggle metadata expand/collapse when clicking the + button
+            if (e.target && e.target.classList.contains('expand-metadata')) {
+                const previewContainer = e.target.closest('.metadata-preview');
+                const documentUuid = previewContainer.getAttribute('data-uuid');
+                const fullMetadataContainer = document.getElementById(`metadata-full-${documentUuid}`);
+                
+                // Toggle the expanded class on the button
+                e.target.classList.toggle('expanded');
+                
+                // Toggle visibility of full metadata
+                fullMetadataContainer.classList.toggle('visible');
+                
+                // Change the + to - and vice versa
+                e.target.textContent = e.target.textContent === '+' ? '−' : '+';
+            }
+        });
+        
+        // Function to render document rows
+        function renderDocumentRows(documents, metadataMap) {
+            const tableBody = document.getElementById('documents-table-body');
+            
+            documents.forEach(doc => {
+                // Format date if it exists
+                let formattedDate = 'N/A';
+                if (doc.creation_date) {
+                    try {
+                        const timestamp = typeof doc.creation_date === 'number' ? 
+                            doc.creation_date * 1000 : Date.parse(doc.creation_date);
+                        
+                        if (!isNaN(timestamp)) {
+                            const dateObj = new Date(timestamp);
+                            formattedDate = dateObj.toLocaleDateString();
+                        }
+                    } catch (e) {
+                        console.error('Invalid date format:', doc.creation_date, e);
+                    }
+                }
+                
+                // Format tags if they exist
+                let tagsDisplay = 'N/A';
+                if (doc.tags) {
+                    if (Array.isArray(doc.tags)) {
+                        tagsDisplay = doc.tags.join(', ');
+                    } else if (typeof doc.tags === 'string') {
+                        tagsDisplay = doc.tags;
+                    }
+                }
+                
+                // Get metadata values for this document
+                const docMetadata = metadataMap[doc.document_uuid] || {};
+                
+                // Format metadata display with expand/collapse functionality
+                let metadataDisplayPreview = '';
+                let metadataDisplayFull = '';
+                let metadataCount = 0;
+                
+                if (docMetadata && Object.keys(docMetadata).length > 0) {
+                    // Create full metadata display
+                    for (const [key, value] of Object.entries(docMetadata)) {
+                        if (value !== null && value !== undefined) {
+                            // DEBUGGING: No filtering or formatting of metadata values
+                            // Display the raw value directly with its type for debugging
+                            const displayValue = value;
+                            console.log(`DEBUG - Metadata: ${key} = ${value} (${typeof value})`);
+                            
+                            // For dates specifically, if it's a number, show both raw value and what it would be as a date
+                            if ((key.toLowerCase().includes('date') || key.toLowerCase().includes('_date')) && typeof value === 'number') {
+                                const dateStr = new Date(value * 1000).toLocaleString();
+                                metadataDisplayFull += `<div><strong>${key}:</strong> ${dateStr}</div>`;
+                            } else {
+                                // For all other values, show as is without type information
+                                metadataDisplayFull += `<div><strong>${key}:</strong> ${displayValue}</div>`;
+                            }
+                            
+                            metadataCount++;
+                        }
+                    }
+                    
+                    // Create preview text (show count)
+                    metadataDisplayPreview = `${metadataCount} metadata field${metadataCount !== 1 ? 's' : ''} (DEBUG MODE)`;
+                } else {
+                    metadataDisplayPreview = 'No metadata';
+                    metadataDisplayFull = '<div>No metadata available for this document</div>';
+                }
+                
+                // Combined display with toggle button
+                const metadataDisplay = `
+                    <div class="metadata-preview" data-uuid="${doc.document_uuid}">
+                        <span class="expand-metadata">+</span>
+                        <span class="metadata-preview-text">${metadataDisplayPreview}</span>
+                    </div>
+                    <div class="metadata-full" id="metadata-full-${doc.document_uuid}">
+                        ${metadataDisplayFull}
+                    </div>
+                `;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><input type="checkbox" class="document-checkbox"></td>
+                    <td title="${doc.document_name || 'N/A'}">${doc.document_name || 'N/A'}</td>
+                    <td>${formattedDate}</td>
+                    <td class="tags-column" title="${tagsDisplay}">${tagsDisplay}</td>
+                    <td class="metadata-column">${metadataDisplay}</td>
+                    <td>
+                        <button class="small-button edit-tags-btn" 
+                            data-uuid="${doc.document_uuid}" 
+                            data-tags="${Array.isArray(doc.tags) ? doc.tags.join(',') : ''}">
+                            Tags
+                        </button>
+                        <button class="small-button compute-metadata-btn" 
+                            data-uuid="${doc.document_uuid}"
+                            title="Compute or update document metadata">
+                            Compute Metadata
+                        </button>
+                        <button class="small-button view-document-btn" 
+                            data-uuid="${doc.document_uuid}"
+                            data-name="${doc.document_name || 'Document'}"
+                            title="View document in S3">
+                            View Document
+                        </button>
+                    </td>
+                    <td style="display: none;" title="${doc.document_uuid || 'N/A'}">${doc.document_uuid || 'N/A'}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // Check for scrolling after adding content
+            setTimeout(checkTableScroll, 200);
+        }
+        
+        // Load documents when page is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Use active filters when loading documents initially
+            fetchDocuments(activeMetadataFilters);
+            
+            // Add event listener for the view document buttons (using delegation)
+            document.getElementById('documents-table-body').addEventListener('click', function(e) {
+                if (e.target && e.target.classList.contains('view-document-btn')) {
+                    const uuid = e.target.getAttribute('data-uuid');
+                    const name = e.target.getAttribute('data-name');
+                    generatePresignedUrl(uuid, name, e.target);
+                }
+            });
+        });
+        
+        // Function to generate presigned URL and open document
+        function generatePresignedUrl(documentUuid, documentName, buttonElement) {
+            // Show loading state
+            const originalText = buttonElement.textContent;
+            buttonElement.innerHTML = '<span class="loading-indicator"></span>Loading...';
+            buttonElement.disabled = true;
+            
+            // Request data
+            const requestData = {
+                document_uuid: documentUuid,
+                expiration: 900 // 15 minutes
+            };
+            
+            // Call the API to generate presigned URL
+            fetch('/api/document-presigned-url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(async response => {
+                // Get the response data regardless of status
+                let responseData;
+                const responseText = await response.text();
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch (e) {
+                    responseData = { status: "error", message: responseText || "Invalid response format" };
+                }
+                
+                // Reset button state
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+                
+                // Check if the response was successful
+                if (!response.ok) {
+                    const errorMsg = responseData.message || `Error code: ${response.status}`;
+                    console.error('Server error:', errorMsg);
+                    showToast(`Error: ${errorMsg}`, 'error');
+                    return;
+                }
+                
+                // Handle successful response
+                if (responseData.status === 'success' && responseData.presigned_url) {
+                    // Show success message
+                    showToast(`Opening ${documentName}...`, 'success');
+                    
+                    // Open document in new tab
+                    window.open(responseData.presigned_url, '_blank');
+                } else {
+                    // The response was OK but format wasn't as expected
+                    console.error('Unexpected response format:', responseData);
+                    showToast('Invalid response from server', 'error');
+                }
+            })
+            .catch(error => {
+                // Reset button state
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+                
+                // Show error message
+                console.error('Error generating presigned URL:', error);
+                showToast(`Failed: ${error.message || 'Network error'}`, 'error');
+            });
+        }
+        
+        // Function to show toast notifications
+        function showToast(message, type = 'success') {
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast-notification toast-${type}`;
+            toast.textContent = message;
+            
+            // Add to document
+            document.body.appendChild(toast);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

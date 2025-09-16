@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+body {
+    font-family: 'Montserrat', 'Courier New', Courier, monospace;
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    color: #333;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    color: #29235c;
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #11c0ef;
+    padding-bottom: 10px;
+}
+
+h2 {
+    color: #62b878;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    border-left: 4px solid #62b878;
+    padding-left: 10px;
+}
+
+.debug-info {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+.json-display {
+    background-color: #333;
+    color: #fff;
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.navigation {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+button {
+    background-color: #54b6ac;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #47a599;
+}
+
+button:first-child {
+    background-color: #54b6ac;
+}
+
+button:first-child:hover {
+    background-color: #47a599;
+}

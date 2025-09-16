@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Additional styles specific to document search */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .results-table th, .results-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .results-table th {
+            background-color: #54b6ac;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .results-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .results-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .loading {
+            text-align: center;
+            display: none;
+            margin: 20px 0;
+        }
+        
+        .loading::after {
+            content: "⏳";
+            display: inline-block;
+            margin-left: 5px;
+            animation: spin 2s infinite linear;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            color: #d9534f;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .no-results {
+            color: #777;
+            font-style: italic;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        /* Styles for expandable content */
+        .expand-button {
+            display: inline-block;
+            cursor: pointer;
+            margin-left: 5px;
+            font-weight: bold;
+            color: #0066cc;
+        }
+        
+        /* View document button style */
+        .view-document-btn {
+            background-color: #2e8b57;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s;
+        }
+        
+        .view-document-btn:hover {
+            background-color: #3cb371;
+        }
+        
+        .view-document-btn:disabled {
+            background-color: #a0c6b4;
+            cursor: not-allowed;
+        }
+        
+        /* Loading indicator for document viewing */
+        .loading-indicator {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Toast notification for document viewing */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 9999;
+            animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+            opacity: 0;
+            animation-fill-mode: forwards;
+        }
+        
+        .toast-success {
+            background-color: #28a745;
+        }
+        
+        .toast-error {
+            background-color: #dc3545;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        .content-preview {
+            display: block;
+        }
+        
+        .content-full {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-left: 3px solid #0066cc;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        
+        /* Styles for metadata display */
+        .metadata-container {
+            margin-top: 5px;
+        }
+        
+        .metadata-preview {
+            display: inline-block;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .metadata-full {
+            font-family: inherit;
+            white-space: normal;
+        }
+        
+        .metadata-item {
+            margin-bottom: 3px;
+            padding: 2px 0;
+        }
+        
+        .metadata-full h5 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .search-field input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .token-usage-info {
+            margin-top: 10px; 
+            font-size: 0.85em; 
+            color: #666; 
+            border-top: 1px solid #ddd; 
+            padding-top: 5px;
+        }
+        
+        .token-usage-info ul {
+            margin: 5px 0; 
+            padding-left: 20px;
+        }
+
+        /* Button group styling */
+        .button-group {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+            gap: 10px;
+        }
+        
+        /* Modal popup styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+        }
+        
+        .close-button {
+            cursor: pointer;
+            font-size: 24px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .close-button:hover {
+            color: black;
+        }
+        
+        .modal-body {
+            margin-bottom: 20px;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+        
+        /* Additional styling for synonym suggestion */
+        .synonym-suggestion {
+            background-color: #f0f7ff;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #0066cc;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+
+        /* Styles for the centered search field */
+        .search-field-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .search-field {
+            width: 70%;
+            margin: 0 auto;
+        }
+
+        /* Styles for the button and dropdown container */
+        .button-dropdown-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Style for the dropdown */
+        .saved-query-dropdown {
+            min-width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        /* Style for the tags field */
+        .tags-field {
+            width: 70%;
+            margin: 0 auto 15px auto;
+        }
+
+        .tags-field input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        /* Metadata filters styling */
+        #metadata-filters {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px auto;
+            border: 1px solid #e0e0e0;
+            width: 70%;
+            box-sizing: border-box;
+        }
+        
+        #metadata-filters h3 {
+            margin-top: 0;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        .filter-instructions {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        
+        .metadata-filter-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .metadata-filter-row select, 
+        .metadata-filter-row input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        .remove-filter {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #add-metadata-filter {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            font-size: 0.9em;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        
+        #add-metadata-filter:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        /* Metadata display styling */
+        .metadata-display {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 0.8em;
+            font-family: 'Courier New', monospace;
+            color: #6a1b9a;
+            background-color: #f3e5f5;
+            border: 1px dashed #9c27b0;
+            border-radius: 3px;
+            padding: 2px 5px;
+            margin-top: 3px;
+            margin-bottom: 3px;
+            max-width: 80%;
+            height: 1.5em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        /* Metadata display styling */
+        .metadata-display {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 0.8em;
+            font-family: 'Courier New', monospace;
+            color: #6a1b9a;
+            background-color: #f3e5f5;
+            border: 1px dashed #9c27b0;
+            border-radius: 3px;
+            padding: 2px 5px;
+            margin-top: 3px;
+            margin-bottom: 3px;
+            max-width: 80%;
+            height: 1.5em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        
+        .metadata-section {
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .metadata-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .metadata-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Document Search</h1>
+        <p>Ask the same question in natural language to all the documents, receive an answer and the text extracts used to justify the answer for each of them. For exemple: Quels sont les signataires de ce documents</p>
+        
+        <div class="search-container">
+            <!-- First row: Tags and Saved Query -->
+            <div class="search-field-container">
+                <div class="tags-field">
+                    <label for="tags">Filter by Tags:</label>
+                    <input type="text" id="tags" name="tags" placeholder="Enter tags (comma separated)">
+                </div>
+            </div>
+            
+            <!-- Second row: Metadata Filters -->
+            <div class="filter-row full-width">
+                <div id="metadata-filters">
+                    <h3>Metadata Filters</h3>
+                    <p class="filter-instructions">Filter documents by their metadata properties. Add multiple filters to refine your search.</p>
+                    <div id="metadata-filters-container"></div>
+                    <button type="button" id="add-metadata-filter" class="btn btn-small" disabled>Add Metadata Filter</button>
+                </div>
+            </div>
+            
+            <!-- Third row: Search Query -->
+            <div class="search-field">
+                <label for="search-query">Search Query:</label>
+                <input type="text" id="search-query" name="query" placeholder="Enter your search query">
+            </div>
+            
+            <!-- Fourth row: Buttons and Saved Query dropdown -->
+            <div class="button-dropdown-group">
+                <select id="saved-query-list" class="saved-query-dropdown">
+                    <option value="">Select a saved query</option>
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+                <button type="button" id="apply-synonym-btn" class="btn btn-secondary">Compute Synonym</button>
+                <button type="button" id="search-button" class="btn btn-primary">Search</button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">Searching documents...</div>
+        
+        <div class="results-container">
+            <h2>Results</h2>
+            <div id="no-results" class="no-results" style="display: none;">No documents found matching your search.</div>
+            <div id="error-message" class="error-message" style="display: none;"></div>
+            
+            <table id="results-table" class="results-table table table-bordered" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Document Name</th>
+                        <th>Answer</th>
+                        <th>Source</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="results-body">
+                    <!-- Results will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="navigation">
+            <button class="btn btn-secondary" onclick="location.href='/welcome'">Back to the Hub</button>
+        </div>
+    </div>
+    
+    <!-- Synonym Modal Dialog -->
+    <div id="synonym-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Synonym Suggestions</h3>
+                <span class="close-button" id="close-synonym-modal">&times;</span>
+            </div>
+            <div class="modal-body" id="synonym-result">
+                <!-- Synonym results will be displayed here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="cancel-synonym-btn" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="apply-synonym-btn-modal" class="btn btn-primary">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Helper function to format metadata values based on their type
+        function formatMetadataValue(meta) {
+            let value = '';
+            if (meta.metadata_value_string !== null) value = meta.metadata_value_string;
+            else if (meta.metadata_value_int !== null) value = meta.metadata_value_int;
+            else if (meta.metadata_value_float !== null) value = meta.metadata_value_float;
+            else if (meta.metadata_value_boolean !== null) value = meta.metadata_value_boolean ? 'Yes' : 'No';
+            else if (meta.metadata_value_date !== null) {
+                const date = new Date(meta.metadata_value_date);
+                value = date.toLocaleDateString();
+            }
+            return value;
+        }
+
+        // Function to toggle content visibility
+        function toggleContent(contentId) {
+            const contentElement = document.getElementById(contentId);
+            const previewElement = document.getElementById(`preview-${contentId}`);
+            const expandButton = event.target;
+            
+            if (contentElement.style.display === 'block') {
+                contentElement.style.display = 'none';
+                previewElement.style.display = 'inline';
+                expandButton.textContent = '+';
+            } else {
+                contentElement.style.display = 'block';
+                previewElement.style.display = 'none';
+                expandButton.textContent = '-';
+            }
+        }
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchButton = document.getElementById('search-button');
+            const computeSynonymBtn = document.getElementById('apply-synonym-btn');
+            const searchQuery = document.getElementById('search-query');
+            const tagsField = document.getElementById('tags');
+            const savedQueryDropdown = document.getElementById('saved-query-list');
+            const resultsTable = document.getElementById('results-table');
+            const resultsBody = document.getElementById('results-body');
+            const loadingElement = document.getElementById('loading');
+            const noResultsElement = document.getElementById('no-results');
+            const errorMessageElement = document.getElementById('error-message');
+            
+            // Store the saved query list and metadata fields
+            let saved_query_list = [];
+            window.metadataFieldsList = []; // Make metadata fields globally accessible
+            
+            // Modal elements
+            const synonymModal = document.getElementById('synonym-modal');
+            const synonymResult = document.getElementById('synonym-result');
+            const closeModal = document.getElementById('close-synonym-modal');
+            const cancelSynonymBtn = document.getElementById('cancel-synonym-btn');
+            const applySynonymBtnModal = document.getElementById('apply-synonym-btn-modal');
+            
+            // Store synonyms result for later use
+            let currentSynonyms = null;
+            
+            searchButton.addEventListener('click', performSearch);
+            computeSynonymBtn.addEventListener('click', computeSynonym);
+            
+            // Saved query selection event handler
+            savedQueryDropdown.addEventListener('change', function() {
+                const selectedUuid = this.value;
+                
+                if (selectedUuid !== "") {
+                    // Find the selected query in our saved_query_list
+                    const selectedQuery = saved_query_list.find(query => query.recurrent_query_uuid === selectedUuid);
+                    
+                    if (selectedQuery) {
+                        // Populate form fields with the selected query data
+                        searchQuery.value = selectedQuery.query_content || '';
+                        tagsField.value = selectedQuery.query_tags || '';
+                    } else {
+                        console.error('Selected query not found in saved_query_list');
+                    }
+                }
+            });
+            
+            // Fetch saved queries and metadata fields on page load
+            fetchSavedQueries();
+            fetchMetadataFields();
+            
+            // Function to fetch saved queries from the API
+            function fetchSavedQueries() {
+                fetch('/api/recurrent-query', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Store the complete response in our saved_query_list variable
+                    if (data && data.recurrent_queries) {
+                        // Match the expected format from rust_get_reccurent_query
+                        saved_query_list = data.recurrent_queries;
+                    } else if (Array.isArray(data)) {
+                        saved_query_list = data;
+                    } else {
+                        console.error('Unexpected data structure:', data);
+                        saved_query_list = [];
+                    }
+                    console.log('Saved Queries List:', saved_query_list);
+                    
+                    // Populate the dropdown
+                    populateSavedQueriesDropdown();
+                })
+                .catch(error => {
+                    console.error('Error fetching saved queries:', error);
+                });
+            }
+            
+            // Function to populate the saved queries dropdown
+            function populateSavedQueriesDropdown() {
+                // Clear existing options except the first one
+                while (savedQueryDropdown.options.length > 1) {
+                    savedQueryDropdown.remove(1);
+                }
+                
+                // Add each query to the dropdown
+                saved_query_list.forEach(query => {
+                    const option = document.createElement('option');
+                    option.value = query.recurrent_query_uuid;
+                    option.text = query.recurrent_query_name;
+                    savedQueryDropdown.appendChild(option);
+                });
+            }
+            
+            // Modal button event listeners
+            closeModal.addEventListener('click', closeModalDialog);
+            cancelSynonymBtn.addEventListener('click', closeModalDialog);
+            applySynonymBtnModal.addEventListener('click', applySynonymResult);
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === synonymModal) {
+                    closeModalDialog();
+                }
+            });
+            
+            // Allow pressing Enter in the search box to trigger search
+            searchQuery.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+            
+            function closeModalDialog() {
+                synonymModal.style.display = 'none';
+            }
+            
+            function applySynonymResult() {
+                // Apply the synonym result to the search query
+                if (currentSynonyms) {
+                    searchQuery.value = currentSynonyms;
+                }
+                closeModalDialog();
+            }
+            
+            function computeSynonym() {
+                const query = searchQuery.value.trim();
+                
+                if (!query) {
+                    errorMessageElement.textContent = 'Please enter a query to compute synonyms.';
+                    errorMessageElement.style.display = 'block';
+                    return;
+                }
+                
+                // Reset UI and show loading
+                noResultsElement.style.display = 'none';
+                errorMessageElement.style.display = 'none';
+                loadingElement.textContent = 'Computing synonyms...';
+                loadingElement.style.display = 'block';
+                
+                // Call rust_compute_synonym API with the correct parameter name 'query' instead of 'text'
+                fetch('/api/apply-synonym', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: query
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error computing synonyms: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Hide loading
+                    loadingElement.style.display = 'none';
+                    
+                    // Display results in modal
+                    if (data && (data.synonyms || data.processed_query)) {
+                        // Store synonyms for later use if user clicks "Apply"
+                        // Check if we have the new API format or the old one
+                        currentSynonyms = data.processed_query || data.synonyms;
+                        
+                        // Format the synonyms result
+                        synonymResult.innerHTML = `
+                            <p>Original query: <strong>${query}</strong></p>
+                            <p>Suggested query with synonyms:</p>
+                            <p class="synonym-suggestion"><strong>${currentSynonyms}</strong></p>
+                        `;
+                        
+                        // Show the modal
+                        synonymModal.style.display = 'block';
+                    } else {
+                        errorMessageElement.textContent = 'No synonyms found for your query.';
+                        errorMessageElement.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Synonym error:', error);
+                    errorMessageElement.textContent = error.message;
+                    errorMessageElement.style.display = 'block';
+                    loadingElement.style.display = 'none';
+                });
+            }
+            
+            function performSearch() {
+                const query = searchQuery.value.trim();
+                const tags = tagsField.value.trim();
+                
+                if (!query) {
+                    errorMessageElement.textContent = 'Please enter a search query.';
+                    errorMessageElement.style.display = 'block';
+                    return;
+                }
+                
+                // Reset UI
+                resultsTable.style.display = 'none';
+                noResultsElement.style.display = 'none';
+                errorMessageElement.style.display = 'none';
+                loadingElement.style.display = 'block';
+                resultsBody.innerHTML = '';
+                
+                // Get metadata filters
+                const metadataFilters = collectMetadataFilters();
+                
+                // Prepare the request payload
+                const requestData = {
+                    client_id: 22 // Default client ID
+                };
+                
+                // Add tags filtering if provided
+                if (tags) {
+                    const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+                    if (tagsArray.length > 0) {
+                        requestData.tags = tagsArray;
+                    }
+                }
+                     // Add metadata filters if present
+            if (metadataFilters.length > 0) {
+                requestData.document_filters = metadataFilters.map(filter => ({
+                    filter_type: "metadata",
+                    filter_value: JSON.stringify({
+                        metadata_uuid: filter.metadata_uuid,
+                        operator: filter.operator,
+                        value: filter.value
+                    })
+                }));
+            }
+
+                // Call document list service
+                fetch('/api/document-list', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error retrieving documents: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Process document list
+                    if (!data.documents || data.documents.length === 0) {
+                        noResultsElement.style.display = 'block';
+                        loadingElement.style.display = 'none';
+                        return;
+                    }
+                    
+                    // Setup for parallel processing
+                    const documents = data.documents;
+                    const promises = [];
+                    
+                    // Create a row for each document
+                    documents.forEach((document, index) => {
+                        const row = resultsBody.insertRow();
+                        const documentCell = row.insertCell(0);
+                        const answerCell = row.insertCell(1);
+                        const sourceCell = row.insertCell(2);
+                        const actionsCell = row.insertCell(3);
+                        
+                        // Generate unique IDs for metadata content
+                        const metadataId = `metadata-${document.document_uuid}`;
+                        
+                        // Create document name with metadata in expandable section if available
+                        let documentHtml = document.document_name;
+                        
+                        // Add metadata in collapsible section if available
+                        if (document.document_metadata && document.document_metadata.length > 0) {
+                            // Create a preview of metadata (first 2 items)
+                            const metadataPreview = document.document_metadata
+                                .slice(0, 2)
+                                .map(meta => `<span class="metadata-item">${meta.metadata_name}: ${formatMetadataValue(meta)}</span>`)
+                                .join(', ');
+                            
+                            // Format all metadata for expanded view
+                            const fullMetadata = document.document_metadata
+                                .map(meta => `<div class="metadata-item">${meta.metadata_name}: ${formatMetadataValue(meta)}</div>`)
+                                .join('');
+                            
+                            // Create expandable metadata section
+                            documentHtml = `
+                                <div>${document.document_name}</div>
+                                <div class="metadata-container">
+                                    <div class="metadata-preview" id="preview-${metadataId}">
+                                        <small class="text-muted">${metadataPreview}${document.document_metadata.length > 2 ? '...' : ''}</small>
+                                    </div>
+                                    <span class="expand-button" onclick="toggleContent('${metadataId}')">+</span>
+                                    <div class="content-full metadata-full" id="${metadataId}">
+                                        <h5>Document Metadata</h5>
+                                        ${fullMetadata}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        documentCell.innerHTML = documentHtml;
+                        
+                        // Set loading placeholders
+                        answerCell.innerHTML = '<em>Processing...</em>';
+                        sourceCell.innerHTML = '<em>Retrieving sources...</em>';
+                        
+                        // Add View Document button to the actions cell
+                        actionsCell.innerHTML = `
+                            <button class="view-document-btn" 
+                                data-uuid="${document.document_uuid}" 
+                                data-name="${document.document_name || 'Document'}"
+                                title="View original document">
+                                View Document
+                            </button>
+                        `;
+                        
+                        // Process each document in parallel
+                        const promise = processDocument(document, query, answerCell, sourceCell, metadataFilters);
+                        promises.push(promise);
+                    });
+                    
+                    // Display the table while processing continues in background
+                    resultsTable.style.display = 'table';
+                    loadingElement.style.display = 'none';
+                    
+                    // Handle completion of all document processing
+                    Promise.allSettled(promises).then(() => {
+                        console.log('All document processing completed');
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    errorMessageElement.textContent = error.message;
+                    errorMessageElement.style.display = 'block';
+                    loadingElement.style.display = 'none';
+                });
+            }
+            
+            function processDocument(document, query, answerCell, sourceCell, metadataFilters) {
+                // First call rust_get_chunks with document_uuid and search query
+                return fetch('/api/get-chunks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: query,
+                        num_results: 2,
+                        document_filters: metadataFilters.map(filter => ({
+                            filter_type: "metadata",
+                            filter_value: JSON.stringify({
+                                metadata_uuid: filter.metadata_uuid,
+                                operator: filter.operator,
+                                value: filter.value
+                            })
+                        })) || [],
+                        document_uuid: document.document_uuid
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error retrieving chunks: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Update source cell with chunks
+                    if (data.chunks && data.chunks.length > 0) {
+                        // Format the chunks with expandable content and metadata
+                        const chunksHtml = data.chunks.map((chunk, index) => {
+                            // Generate unique IDs for each expandable content section
+                            const contentId = `content-${document.document_uuid}-${index}`;
+                            
+                            // Process metadata if available
+                            let metadataHtml = '';
+                            if (chunk.document_metadata && chunk.document_metadata.length > 0) {
+                                const formattedMetadata = chunk.document_metadata.map(meta => {
+                                    let value = '';
+                                    if (meta.metadata_value_string !== null) value = meta.metadata_value_string;
+                                    else if (meta.metadata_value_int !== null) value = meta.metadata_value_int;
+                                    else if (meta.metadata_value_float !== null) value = meta.metadata_value_float;
+                                    else if (meta.metadata_value_boolean !== null) value = meta.metadata_value_boolean ? 'Yes' : 'No';
+                                    else if (meta.metadata_value_date !== null) {
+                                        const date = new Date(meta.metadata_value_date);
+                                        value = date.toLocaleDateString();
+                                    }
+                                    return `<span class="metadata-display">${meta.metadata_name}: ${value}</span>`;
+                                }).join(' ');
+
+                                metadataHtml = `
+                                    <div class="metadata-section">
+                                        <div class="metadata-header">Metadata</div>
+                                        <div class="metadata-content">${formattedMetadata}</div>
+                                    </div>
+                                `;
+                            }
+
+                            return `<div class="chunk">
+                                <div class="chunk-content">
+                                    <strong>Content:</strong> 
+                                    <span class="content-preview" id="preview-${contentId}">
+                                        ${chunk.embebed_text.substring(0, 150)}${chunk.embebed_text.length > 150 ? '...' : ''}
+                                    </span>
+                                    <span class="expand-button" onclick="toggleContent('${contentId}')">+</span>
+                                    <div class="content-full" id="${contentId}">
+                                        ${chunk.embebed_text}
+                                    </div>
+                                </div>
+                                ${metadataHtml}
+                            </div>`;
+                        }).join('<hr>');
+                        
+                        sourceCell.innerHTML = chunksHtml;
+                        
+                        // Then call rust_openai_answer with chunks
+                        return fetch('/api/get-openai-answer', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                question: query,
+                                chunks: data.chunks
+                            })
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`Error generating answer: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(openaiData => {
+                            // Update answer cell with OpenAI response
+                            if (openaiData && openaiData.answer) {
+                                // Format the answer with line breaks
+                                const formattedAnswer = openaiData.answer.replace(/\n/g, '<br>');
+                                
+                                // Token usage information HTML
+                                let tokenUsageHtml = '';
+                                if (openaiData.token_usage) {
+                                    const inputTokens = openaiData.token_usage.input_tokens || 0;
+                                    const outputTokens = openaiData.token_usage.output_tokens || 0;
+                                    const totalTokens = openaiData.token_usage.total_tokens || 0;
+                                    
+                                    // Calculate price using the formula: (input * .15 + output * .6)/1000000
+                                    const price = (inputTokens * 0.15 + outputTokens * 0.6) / 1000000;
+                                    const formattedPrice = price.toFixed(6); // Format to 6 decimal places
+                                    
+                                    // Calculate energy consumption using the formula: energy = 0.000018 Wh * total_tokens
+                                    const energyConsumption = 0.000018 * totalTokens;
+                                    const formattedEnergy = energyConsumption.toFixed(6); // Format to 6 decimal places
+                                    
+                                    tokenUsageHtml = `
+                                        <div class="token-usage-info">
+                                            <strong>Token Usage:</strong>
+                                            <ul>
+                                                <li>Input tokens: ${inputTokens || 'N/A'}</li>
+                                                <li>Output tokens: ${outputTokens || 'N/A'}</li>
+                                                <li>Total tokens: ${totalTokens || 'N/A'}</li>
+                                                <li>Price ($): ${formattedPrice}</li>
+                                                <li>Energy (Wh): ${formattedEnergy}</li>
+                                            </ul>
+                                        </div>
+                                    `;
+                                }
+                                
+                                answerCell.innerHTML = `
+                                    <div class="answer-wrapper">
+                                        <div class="answer-content">
+                                            ${formattedAnswer}
+                                        </div>
+                                        ${tokenUsageHtml}
+                                    </div>
+                                `;
+                            } else {
+                                answerCell.innerHTML = '<em>No answer generated</em>';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('OpenAI error:', error);
+                            answerCell.innerHTML = `<span class="error-message">Error generating answer: ${error.message}</span>`;
+                        });
+                    } else {
+                        sourceCell.innerHTML = '<em>No relevant sources found</em>';
+                        answerCell.innerHTML = '<em>No answer available - no sources found</em>';
+                        return Promise.resolve(); // Return resolved promise to continue the flow
+                    }
+                })
+                .catch(error => {
+                    console.error('Chunks error:', error);
+                    sourceCell.innerHTML = `<span class="error-message">Error retrieving sources: ${error.message}</span>`;
+                    answerCell.innerHTML = '<em>Unable to generate answer</em>';
+                    return Promise.resolve(); // Return resolved promise to continue the flow
+                });
+            }
+        });
+
+        // Store available metadata fields as a global variable
+        window.metadataFieldsList = [];
+
+        // Fetch metadata fields from the API
+        function fetchMetadataFields() {
+            // Show loading state
+            const metadataContainer = document.getElementById('metadata-filters-container');
+            const addFilterButton = document.getElementById('add-metadata-filter');
+            
+            addFilterButton.disabled = true;
+            metadataContainer.innerHTML = '<p class="filter-instructions" style="font-style: italic;">Loading metadata fields...</p>';
+            
+            fetch('/api/metadata')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Clear loading state
+                    metadataContainer.innerHTML = '';
+                    
+                    // Process the metadata fields
+                    if (data && data.metadatas && Array.isArray(data.metadatas)) {
+                        window.metadataFieldsList = data.metadatas;
+                    } else if (Array.isArray(data)) {
+                        window.metadataFieldsList = data;
+                    }
+                    
+                    if (window.metadataFieldsList.length === 0) {
+                        metadataContainer.innerHTML = '<p class="filter-instructions">No metadata fields are currently available.</p>';
+                    } else {
+                        console.log('Available metadata fields:', window.metadataFieldsList);
+                        addFilterButton.disabled = false;
+                        
+                        // Add helpful information
+                        metadataContainer.innerHTML = `
+                            <p class="filter-instructions">
+                                ${window.metadataFieldsList.length} metadata field(s) available for filtering.
+                                Click "Add Metadata Filter" to start filtering documents.
+                            </p>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching metadata fields:', error);
+                    metadataContainer.innerHTML = `
+                        <p class="filter-instructions" style="color: #dc3545;">
+                            Error loading metadata fields: ${error.message}
+                        </p>
+                    `;
+                });
+        }
+        
+        // Add new metadata filter row
+        document.getElementById('add-metadata-filter').addEventListener('click', addMetadataFilterRow);
+        
+        function addMetadataFilterRow() {
+            const container = document.getElementById('metadata-filters-container');
+            const rowId = Date.now(); // Unique ID for this filter row
+            
+            const filterRow = document.createElement('div');
+            filterRow.className = 'metadata-filter-row';
+            filterRow.dataset.id = rowId;
+            
+            // Create metadata field selector
+            const fieldSelect = document.createElement('select');
+            fieldSelect.className = 'metadata-field';
+            fieldSelect.setAttribute('required', true);
+            
+            // Add empty default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select a field';
+            fieldSelect.appendChild(defaultOption);
+            
+            // Add options from metadataFieldsList
+            metadataFieldsList.forEach(field => {
+                const option = document.createElement('option');
+                option.value = field.metadata_uuid;
+                option.textContent = field.metadata_name;
+                option.dataset.type = field.metadata_type;
+                fieldSelect.appendChild(option);
+            });
+            
+            // Create operator selector
+            const operatorSelect = document.createElement('select');
+            operatorSelect.className = 'metadata-operator';
+            
+            // Create value input
+            const valueInput = document.createElement('input');
+            valueInput.className = 'metadata-value';
+            valueInput.type = 'text';
+            valueInput.required = true;
+            
+            // Create remove button
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'remove-filter';
+            removeButton.textContent = '×';
+            
+            // Add remove functionality
+            removeButton.addEventListener('click', function() {
+                container.removeChild(filterRow);
+            });
+            
+            // Add change listener to field select to update input type
+            fieldSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const fieldType = selectedOption.dataset.type;
+                
+                // Update input type based on metadata field type
+                if (fieldType === 'DATE') {
+                    valueInput.type = 'date';
+                } else if (fieldType === 'NUMBER' || fieldType === 'INTEGER') {
+                    valueInput.type = 'number';
+                    if (fieldType === 'INTEGER') {
+                        valueInput.step = '1';
+                    }
+                } else if (fieldType === 'BOOLEAN') {
+                    valueInput.type = 'checkbox';
+                } else {
+                    valueInput.type = 'text';
+                }
+                
+                // Update available operators based on field type
+                operatorSelect.innerHTML = '';
+                
+                let availableOperators;
+                if (fieldType === 'BOOLEAN') {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' }
+                    ];
+                } else if (fieldType === 'DATE' || fieldType === 'NUMBER' || fieldType === 'INTEGER') {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' },
+                        { value: 'gt', text: 'Greater than' },
+                        { value: 'lt', text: 'Less than' },
+                        { value: 'gte', text: 'Greater than or equal to' },
+                        { value: 'lte', text: 'Less than or equal to' }
+                    ];
+                } else {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' },
+                        { value: 'contains', text: 'Contains' },
+                        { value: 'not_contains', text: 'Does not contain' },
+                        { value: 'starts_with', text: 'Starts with' },
+                        { value: 'ends_with', text: 'Ends with' }
+                    ];
+                }
+                
+                availableOperators.forEach(op => {
+                    const option = document.createElement('option');
+                    option.value = op.value;
+                    option.textContent = op.text;
+                    operatorSelect.appendChild(option);
+                });
+            });
+            
+            // Add elements to row
+            filterRow.appendChild(fieldSelect);
+            filterRow.appendChild(operatorSelect);
+            filterRow.appendChild(valueInput);
+            filterRow.appendChild(removeButton);
+            
+            // Add row to container
+            container.appendChild(filterRow);
+        }
+
+        // Function to gather metadata filters
+        function collectMetadataFilters() {
+            const filters = [];
+            const filterRows = document.querySelectorAll('.metadata-filter-row');
+            
+            filterRows.forEach(row => {
+                const fieldSelect = row.querySelector('.metadata-field');
+                const operatorSelect = row.querySelector('.metadata-operator');
+                const valueInput = row.querySelector('.metadata-value');
+                
+                if (fieldSelect.value && operatorSelect.value) {
+                    // Get the metadata field details
+                    const selectedOption = fieldSelect.options[fieldSelect.selectedIndex];
+                    const fieldName = selectedOption.textContent;
+                    const fieldType = selectedOption.dataset.type;
+                    
+                    // Get the value based on input type
+                    let value;
+                    if (valueInput.type === 'checkbox') {
+                        value = valueInput.checked;
+                    } else {
+                        value = valueInput.value;
+                    }
+                    
+                    if (value !== undefined && value !== '') {
+                        filters.push({
+                            metadata_uuid: fieldSelect.value,
+                            metadata_name: fieldName,
+                            metadata_type: fieldType,
+                            operator: operatorSelect.value,
+                            value: value
+                        });
+                    }
+                }
+            });
+            
+            return filters;
+        }
+
+        // Update the performSearch function to include metadata filters
+        function performSearch() {
+            const query = searchQuery.value.trim();
+            const tags = tagsField.value.trim();
+            
+            if (!query) {
+                errorMessageElement.textContent = 'Please enter a search query.';
+                errorMessageElement.style.display = 'block';
+                return;
+            }
+            
+            // Reset UI
+            resultsTable.style.display = 'none';
+            noResultsElement.style.display = 'none';
+            errorMessageElement.style.display = 'none';
+            loadingElement.style.display = 'block';
+            resultsBody.innerHTML = '';
+            
+            // Get metadata filters
+            const metadataFilters = collectMetadataFilters();
+            
+            // Prepare the request payload
+            const requestData = {
+                client_id: 22 // Default client ID
+            };
+            
+            // Add tags filtering if provided
+            if (tags) {
+                const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+                if (tagsArray.length > 0) {
+                    requestData.tags = tagsArray;
+                }
+            }
+            
+            // Add metadata filters if present
+            if (metadataFilters.length > 0) {
+                requestData.document_filters = metadataFilters.map(filter => ({
+                    filter_type: "metadata",
+                    filter_value: JSON.stringify({
+                        metadata_uuid: filter.metadata_uuid,
+                        operator: filter.operator,
+                        value: filter.value
+                    })
+                }));
+            }
+
+            // Call document list service
+            fetch('/api/document-list', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error retrieving documents: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Process document list
+                if (!data.documents || data.documents.length === 0) {
+                    noResultsElement.style.display = 'block';
+                    loadingElement.style.display = 'none';
+                    return;
+                }
+                
+                // Setup for parallel processing
+                const documents = data.documents;
+                const promises = [];
+                
+                // Create a row for each document
+                documents.forEach((document, index) => {
+                    const row = resultsBody.insertRow();
+                    const documentCell = row.insertCell(0);
+                    const answerCell = row.insertCell(1);
+                    const sourceCell = row.insertCell(2);
+                    const actionsCell = row.insertCell(3);
+                    
+                    // Generate unique IDs for metadata content
+                    const metadataId = `metadata-${document.document_uuid}`;
+                    
+                    // Create document name with metadata in expandable section if available
+                    let documentHtml = document.document_name;
+                    
+                    // Add metadata in collapsible section if available
+                    if (document.document_metadata && document.document_metadata.length > 0) {
+                        // Create a preview of metadata (first 2 items)
+                        const metadataPreview = document.document_metadata
+                            .slice(0, 2)
+                            .map(meta => `<span class="metadata-item">${meta.metadata_name}: ${formatMetadataValue(meta)}</span>`)
+                            .join(', ');
+                        
+                        // Format all metadata for expanded view
+                        const fullMetadata = document.document_metadata
+                            .map(meta => `<div class="metadata-item">${meta.metadata_name}: ${formatMetadataValue(meta)}</div>`)
+                            .join('');
+                        
+                        // Create expandable metadata section
+                        documentHtml = `
+                            <div>${document.document_name}</div>
+                            <div class="metadata-container">
+                                <div class="metadata-preview" id="preview-${metadataId}">
+                                    <small class="text-muted">${metadataPreview}${document.document_metadata.length > 2 ? '...' : ''}</small>
+                                </div>
+                                <span class="expand-button" onclick="toggleContent('${metadataId}')">+</span>
+                                <div class="content-full metadata-full" id="${metadataId}">
+                                    <h5>Document Metadata</h5>
+                                    ${fullMetadata}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    documentCell.innerHTML = documentHtml;
+                    
+                    // Set loading placeholders
+                    answerCell.innerHTML = '<em>Processing...</em>';
+                    sourceCell.innerHTML = '<em>Retrieving sources...</em>';
+                    
+                    // Process each document in parallel
+                    const promise = processDocument(document, query, answerCell, sourceCell, metadataFilters);
+                    promises.push(promise);
+                });
+                
+                // Display the table while processing continues in background
+                resultsTable.style.display = 'table';
+                loadingElement.style.display = 'none';
+                
+                // Handle completion of all document processing
+                Promise.allSettled(promises).then(() => {
+                    console.log('All document processing completed');
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                errorMessageElement.textContent = error.message;
+                errorMessageElement.style.display = 'block';
+                loadingElement.style.display = 'none';
+            });
+        }
+        
+        function processDocument(document, query, answerCell, sourceCell, metadataFilters = []) {
+            // First call rust_get_chunks with document_uuid and search query
+            return fetch('/api/get-chunks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    question: query,
+                    num_results: 2,
+                    document_filters: metadataFilters.map(filter => ({
+                        filter_type: "metadata",
+                        filter_value: JSON.stringify({
+                            metadata_uuid: filter.metadata_uuid,
+                            operator: filter.operator,
+                            value: filter.value
+                        })
+                    })) || [],
+                    document_uuid: document.document_uuid
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error retrieving chunks: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Update source cell with chunks
+                if (data.chunks && data.chunks.length > 0) {
+                    // Format the chunks with expandable content and metadata
+                    const chunksHtml = data.chunks.map((chunk, index) => {
+                        // Generate unique IDs for each expandable content section
+                        const contentId = `content-${document.document_uuid}-${index}`;
+                        
+                        // Process metadata if available
+                        let metadataHtml = '';
+                        if (chunk.document_metadata && chunk.document_metadata.length > 0) {
+                            const formattedMetadata = chunk.document_metadata.map(meta => {
+                                let value = '';
+                                if (meta.metadata_value_string !== null) value = meta.metadata_value_string;
+                                else if (meta.metadata_value_int !== null) value = meta.metadata_value_int;
+                                else if (meta.metadata_value_float !== null) value = meta.metadata_value_float;
+                                else if (meta.metadata_value_boolean !== null) value = meta.metadata_value_boolean ? 'Yes' : 'No';
+                                else if (meta.metadata_value_date !== null) {
+                                    const date = new Date(meta.metadata_value_date);
+                                    value = date.toLocaleDateString();
+                                }
+                                return `<span class="metadata-display">${meta.metadata_name}: ${value}</span>`;
+                            }).join(' ');
+
+                            metadataHtml = `
+                                <div class="metadata-section">
+                                    <div class="metadata-header">Metadata</div>
+                                    <div class="metadata-content">${formattedMetadata}</div>
+                                </div>
+                            `;
+                        }
+
+                        return `<div class="chunk">
+                            <div class="chunk-content">
+                                <strong>Content:</strong> 
+                                <span class="content-preview" id="preview-${contentId}">
+                                    ${chunk.embebed_text.substring(0, 150)}${chunk.embebed_text.length > 150 ? '...' : ''}
+                                </span>
+                                <span class="expand-button" onclick="toggleContent('${contentId}')">+</span>
+                                <div class="content-full" id="${contentId}">
+                                    ${chunk.embebed_text}
+                                </div>
+                            </div>
+                            ${metadataHtml}
+                        </div>`;
+                    }).join('<hr>');
+                    
+                    sourceCell.innerHTML = chunksHtml;
+                    
+                    // Then call rust_openai_answer with chunks
+                    return fetch('/api/get-openai-answer', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            question: query,
+                            chunks: data.chunks
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Error generating answer: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(openaiData => {
+                        // Update answer cell with OpenAI response
+                        if (openaiData && openaiData.answer) {
+                            // Format the answer with line breaks
+                            const formattedAnswer = openaiData.answer.replace(/\n/g, '<br>');
+                            
+                            // Token usage information HTML
+                            let tokenUsageHtml = '';
+                            if (openaiData.token_usage) {
+                                const inputTokens = openaiData.token_usage.input_tokens || 0;
+                                const outputTokens = openaiData.token_usage.output_tokens || 0;
+                                const totalTokens = openaiData.token_usage.total_tokens || 0;
+                                
+                                // Calculate price using the formula: (input * .15 + output * .6)/1000000
+                                const price = (inputTokens * 0.15 + outputTokens * 0.6) / 1000000;
+                                const formattedPrice = price.toFixed(6); // Format to 6 decimal places
+                                
+                                // Calculate energy consumption using the formula: energy = 0.000018 Wh * total_tokens
+                                const energyConsumption = 0.000018 * totalTokens;
+                                const formattedEnergy = energyConsumption.toFixed(6); // Format to 6 decimal places
+                                
+                                tokenUsageHtml = `
+                                    <div class="token-usage-info">
+                                        <strong>Token Usage:</strong>
+                                        <ul>
+                                            <li>Input tokens: ${inputTokens || 'N/A'}</li>
+                                            <li>Output tokens: ${outputTokens || 'N/A'}</li>
+                                            <li>Total tokens: ${totalTokens || 'N/A'}</li>
+                                            <li>Price ($): ${formattedPrice}</li>
+                                            <li>Energy (Wh): ${formattedEnergy}</li>
+                                        </ul>
+                                    </div>
+                                `;
+                            }
+                            
+                            answerCell.innerHTML = `
+                                <div class="answer-wrapper">
+                                    <div class="answer-content">
+                                        ${formattedAnswer}
+                                    </div>
+                                    ${tokenUsageHtml}
+                                </div>
+                            `;
+                        } else {
+                            answerCell.innerHTML = '<em>No answer generated</em>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('OpenAI error:', error);
+                        answerCell.innerHTML = `<span class="error-message">Error generating answer: ${error.message}</span>`;
+                    });
+                } else {
+                    sourceCell.innerHTML = '<em>No relevant sources found</em>';
+                    answerCell.innerHTML = '<em>No answer available - no sources found</em>';
+                    return Promise.resolve(); // Return resolved promise to continue the flow
+                }
+            })
+            .catch(error => {
+                console.error('Chunks error:', error);
+                sourceCell.innerHTML = `<span class="error-message">Error retrieving sources: ${error.message}</span>`;
+                answerCell.innerHTML = '<em>Unable to generate answer</em>';
+                return Promise.resolve(); // Return resolved promise to continue the flow
+            });
+        }
+
+        // Add event listener for document ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add event listener for the view document buttons (using delegation)
+            document.getElementById('results-body').addEventListener('click', function(e) {
+                if (e.target && e.target.classList.contains('view-document-btn')) {
+                    const uuid = e.target.getAttribute('data-uuid');
+                    const name = e.target.getAttribute('data-name');
+                    generatePresignedUrl(uuid, name, e.target);
+                }
+            });
+        });
+        
+        // Function to generate presigned URL and open document
+        function generatePresignedUrl(documentUuid, documentName, buttonElement) {
+            // Show loading state
+            const originalText = buttonElement.textContent;
+            buttonElement.innerHTML = '<span class="loading-indicator"></span>Loading...';
+            buttonElement.disabled = true;
+            
+            console.log(`Requesting presigned URL for document: ${documentUuid} (${documentName})`);
+            
+            // Request data
+            const requestData = {
+                document_uuid: documentUuid,
+                expiration: 3600 // 1 hour expiration
+            };
+            
+            // Call the API to generate presigned URL
+            fetch('/api/document-presigned-url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                console.log('Presigned URL response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`Network response was not ok: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Reset button state
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+                
+                console.log('Presigned URL response data:', data);
+                
+                if (data.status === 'success' && data.presigned_url) {
+                    // Show success message
+                    showToast(`Opening ${documentName}...`, 'success');
+                    
+                    // Log the URL we're about to open
+                    console.log('Opening document URL:', data.presigned_url);
+                    
+                    // Open document in new tab
+                    window.open(data.presigned_url, '_blank');
+                } else {
+                    console.error('Invalid response format or missing URL:', data);
+                    throw new Error('Invalid response format or missing URL');
+                }
+            })
+            .catch(error => {
+                // Reset button state
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+                
+                // Show error message
+                console.error('Error generating presigned URL:', error);
+                showToast('Failed to generate document URL', 'error');
+            });
+        }
+        
+        // Function to show toast notifications
+        function showToast(message, type = 'success') {
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast-notification toast-${type}`;
+            toast.textContent = message;
+            
+            // Add to document
+            document.body.appendChild(toast);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

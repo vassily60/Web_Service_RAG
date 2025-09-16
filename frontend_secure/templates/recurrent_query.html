@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Queries</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 5px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .button-container {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .action-buttons-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button.delete {
+            background-color: #f44336;
+        }
+        
+        button.delete:hover {
+            background-color: #d32f2f;
+        }
+        
+        button.update {
+            background-color: #2196F3;
+        }
+        
+        button.update:hover {
+            background-color: #0b7dda;
+        }
+        
+        button.back {
+            background-color: #9e9e9e;
+        }
+        
+        button.back:hover {
+            background-color: #757575;
+        }
+        
+        button.refresh {
+            background-color: #ff9800;
+        }
+        
+        button.refresh:hover {
+            background-color: #e68a00;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+        }
+        
+        tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 5px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            margin-bottom: 20px;
+        }
+        
+        .modal-body .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .modal-body label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .modal-body input, .modal-body select, .modal-body textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .modal-body textarea {
+            height: 100px;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #777;
+        }
+        
+        /* Quick access dropdown styling */
+        .query-selector-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .query-selector-container h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .select-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .select-container select {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        .select-container button {
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Saved Queries</h1>
+        
+        <!-- New Quick Access Dropdown Section -->
+        <div class="query-selector-container">
+            <h3>Quick Access</h3>
+            <div class="select-container">
+                <select id="recurrent-query-dropdown" class="form-select">
+                    <option value="">Select a saved query</option>
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+                <button id="load-selected-query" class="update">Load Query</button>
+            </div>
+        </div>
+        
+        <div class="button-container">
+            <div class="action-buttons-container">
+                <button id="add-query-btn">Add New Saved Query</button>
+                <button id="refresh-btn" class="refresh">Refresh List</button>
+            </div>
+            <div>
+                <button class="back" onclick="location.href='/welcome'">Back to Welcome Page</button>
+            </div>
+        </div>
+        
+        <div id="loading-indicator" class="loading">Loading recurrent queries...</div>
+        
+        <table id="queries-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Content</th>
+                    <th>User</th>
+                    <th>Tags</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Comments</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="queries-list">
+                <!-- Query data will be inserted here by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Add/Edit Recurrent Query Modal -->
+    <div id="query-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Add Saved Query</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="query-form">
+                    <input type="hidden" id="query-uuid">
+                    
+                    <div id="uuid-display" class="form-group" style="display: none;">
+                        <label for="query-uuid-display">Query UUID:</label>
+                        <input type="text" id="query-uuid-display" disabled style="background-color: #f5f5f5; cursor: not-allowed;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-name">Name:</label>
+                        <input type="text" id="query-name" name="query-name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-type">Type:</label>
+                        <select id="query-type" name="query-type" required>
+                            <option value="search">Search</option>
+                            <option value="filter">Filter</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-content">Content:</label>
+                        <textarea id="query-content" name="query-content" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-tags">Tags (comma separated):</label>
+                        <input type="text" id="query-tags" name="query-tags">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-start-date">Start Date:</label>
+                        <input type="date" id="query-start-date" name="query-start-date">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-end-date">End Date:</label>
+                        <input type="date" id="query-end-date" name="query-end-date">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-comments">Comments:</label>
+                        <textarea id="query-comments" name="query-comments"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-query-btn">Cancel</button>
+                <button id="save-query-btn" class="update">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Delete</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this saved query? This action cannot be undone.</p>
+                <input type="hidden" id="delete-query-uuid">
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-delete-btn">Cancel</button>
+                <button id="confirm-delete-btn" class="delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // References to DOM elements
+            const queriesTable = document.getElementById('queries-table');
+            const queriesList = document.getElementById('queries-list');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const recurrentQueryDropdown = document.getElementById('recurrent-query-dropdown');
+            const loadSelectedQueryBtn = document.getElementById('load-selected-query');
+            
+            // Modal elements
+            const queryModal = document.getElementById('query-modal');
+            const deleteModal = document.getElementById('delete-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const queryForm = document.getElementById('query-form');
+            const addQueryBtn = document.getElementById('add-query-btn');
+            const refreshBtn = document.getElementById('refresh-btn');
+            const saveQueryBtn = document.getElementById('save-query-btn');
+            const cancelQueryBtn = document.getElementById('cancel-query-btn');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            const closeButtons = document.getElementsByClassName('close');
+            
+            // Form fields
+            const queryUuidField = document.getElementById('query-uuid');
+            const queryNameField = document.getElementById('query-name');
+            const queryTypeField = document.getElementById('query-type');
+            const queryContentField = document.getElementById('query-content');
+            const queryTagsField = document.getElementById('query-tags');
+            const queryStartDateField = document.getElementById('query-start-date');
+            const queryEndDateField = document.getElementById('query-end-date');
+            const queryCommentsField = document.getElementById('query-comments');
+            const deleteQueryUuidField = document.getElementById('delete-query-uuid');
+            const queryUuidDisplayField = document.getElementById('query-uuid-display');
+            const uuidDisplayContainer = document.getElementById('uuid-display');
+            
+            // Store all queries for quick access
+            let allQueriesData = [];
+            
+            // Load recurrent queries
+            loadRecurrentQueries();
+            
+            // Event listeners
+            addQueryBtn.addEventListener('click', showAddQueryModal);
+            refreshBtn.addEventListener('click', loadRecurrentQueries);
+            saveQueryBtn.addEventListener('click', saveRecurrentQuery);
+            cancelQueryBtn.addEventListener('click', closeQueryModal);
+            confirmDeleteBtn.addEventListener('click', deleteRecurrentQuery);
+            cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+            loadSelectedQueryBtn.addEventListener('click', loadSelectedQuery);
+            
+            // Close modal when clicking on X
+            for (let i = 0; i < closeButtons.length; i++) {
+                closeButtons[i].addEventListener('click', function() {
+                    queryModal.style.display = 'none';
+                    deleteModal.style.display = 'none';
+                });
+            }
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === queryModal) {
+                    queryModal.style.display = 'none';
+                }
+                if (event.target === deleteModal) {
+                    deleteModal.style.display = 'none';
+                }
+            });
+            
+            // Function to load recurrent queries
+            function loadRecurrentQueries() {
+                loadingIndicator.style.display = 'block';
+                queriesTable.style.display = 'none';
+                
+                fetch('/api/recurrent-query')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        displayRecurrentQueries(data);
+                        populateDropdown(data);
+                    })
+                    .catch(error => {
+                        console.error('Error loading recurrent queries:', error);
+                        queriesList.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">Error loading recurrent queries: ${error.message}</td></tr>`;
+                    })
+                    .finally(() => {
+                        loadingIndicator.style.display = 'none';
+                        queriesTable.style.display = 'table';
+                    });
+            }
+            
+            // Function to populate the dropdown list with recurrent query names
+            function populateDropdown(response) {
+                // Clear existing options first
+                recurrentQueryDropdown.innerHTML = '<option value="">Select a saved query</option>';
+                
+                // Extract the recurrent queries array from the response
+                let queries = [];
+                
+                if (response && response.recurrent_queries) {
+                    // This matches the exact structure from the API
+                    queries = response.recurrent_queries;
+                    console.log('Found queries for dropdown:', queries);
+                    // Store all queries data for later use
+                    allQueriesData = queries;
+                } else if (response && response.data && response.data.recurrent_queries) {
+                    // Handle potential nested data structure
+                    queries = response.data.recurrent_queries;
+                    allQueriesData = queries;
+                } else if (Array.isArray(response)) {
+                    // Handle case where response is directly an array
+                    queries = response;
+                    allQueriesData = queries;
+                } else if (response.data && Array.isArray(response.data)) {
+                    // Handle case where data is directly an array
+                    queries = response.data;
+                    allQueriesData = queries;
+                } else {
+                    // Fallback checks for other possible structures
+                    queries = response.queries || response.results || response.items || [];
+                    allQueriesData = queries;
+                }
+                
+                if (!queries || queries.length === 0) {
+                    console.log('No queries found to populate dropdown');
+                    return;
+                }
+                
+                // Add each query to the dropdown
+                queries.forEach(query => {
+                    if (query.recurrent_query_name) {
+                        const option = document.createElement('option');
+                        option.value = query.recurrent_query_uuid;
+                        option.textContent = query.recurrent_query_name;
+                        recurrentQueryDropdown.appendChild(option);
+                    }
+                });
+            }
+            
+            // Function to load a selected query
+            function loadSelectedQuery() {
+                const selectedUuid = recurrentQueryDropdown.value;
+                if (!selectedUuid) {
+                    alert('Please select a query first');
+                    return;
+                }
+                
+                // Find the selected query in our cached data
+                const selectedQuery = allQueriesData.find(q => q.recurrent_query_uuid === selectedUuid);
+                
+                if (selectedQuery) {
+                    // Display the edit modal with the selected query data
+                    editQuery(selectedUuid);
+                } else {
+                    // If not found in cache, fetch from server
+                    editQuery(selectedUuid);
+                }
+            }
+            
+            // Function to display recurrent queries
+            function displayRecurrentQueries(response) {
+                console.log('Received API response:', response); // Debug log to see the entire response
+                
+                // Extract the recurrent queries array from the response
+                // The specific structure is {"recurrent_queries": [...], "statusAPI": "OK"}
+                let queries = [];
+                
+                if (response && response.recurrent_queries) {
+                    // This matches the exact structure from the API
+                    queries = response.recurrent_queries;
+                    console.log('Found queries in recurrent_queries field:', queries);
+                } else if (response && response.data && response.data.recurrent_queries) {
+                    // Handle potential nested data structure
+                    queries = response.data.recurrent_queries;
+                } else if (Array.isArray(response)) {
+                    // Handle case where response is directly an array
+                    queries = response;
+                } else if (response.data && Array.isArray(response.data)) {
+                    // Handle case where data is directly an array
+                    queries = response.data;
+                } else {
+                    // Fallback checks for other possible structures
+                    queries = response.queries || response.results || response.items || [];
+                }
+                
+                if (!queries || queries.length === 0) {
+                    queriesList.innerHTML = '<tr><td colspan="9" style="text-align:center;">No recurrent queries found.</td></tr>';
+                    return;
+                }
+                
+                let html = '';
+                
+                queries.forEach(query => {
+                    console.log('Processing query:', query);
+                    
+                    // Use the exact field names from the API response
+                    const queryUuid = query.recurrent_query_uuid || '';
+                    
+                    html += `
+                        <tr>
+                            <td>${escapeHtml(query.recurrent_query_name || '')}</td>
+                            <td>${escapeHtml(query.query_type || '')}</td>
+                            <td>${escapeHtml(query.query_content || '')}</td>
+                            <td>${escapeHtml(query.user_uuid || '')}</td>
+                            <td>${escapeHtml(query.query_tags || '')}</td>
+                            <td>${formatDate(query.query_start_document_date)}</td>
+                            <td>${formatDate(query.query_end_document_date)}</td>
+                            <td>${escapeHtml(query.comments || '')}</td>
+                            <td class="action-buttons">
+                                <button onclick="editQuery('${queryUuid}')" class="update">Edit</button>
+                                <button onclick="showDeleteModal('${queryUuid}')" class="delete">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                queriesList.innerHTML = html;
+            }
+            
+            // Function to format date
+            function formatDate(dateString) {
+                if (!dateString) return '';
+                try {
+                    const date = new Date(dateString);
+                    return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
+                } catch (e) {
+                    console.error('Error formatting date:', e);
+                    return '';
+                }
+            }
+            
+            // Function to format date and time
+            function formatDateTime(dateTimeString) {
+                if (!dateTimeString) return '';
+                try {
+                    const date = new Date(dateTimeString);
+                    return isNaN(date.getTime()) ? '' : date.toLocaleString();
+                } catch (e) {
+                    console.error('Error formatting datetime:', e);
+                    return '';
+                }
+            }
+            
+            // Function to show add query modal
+            function showAddQueryModal() {
+                modalTitle.textContent = 'Add Saved Query';
+                saveQueryBtn.textContent = 'Save'; // Reset button text to Save for creation mode
+                resetQueryForm();
+                queryModal.style.display = 'block';
+            }
+            
+            // Function to edit a recurrent query
+            window.editQuery = function(queryUuid) {
+                if (!queryUuid) {
+                    console.error('No query UUID provided for editing');
+                    alert('Error: Cannot edit query without UUID');
+                    return;
+                }
+                
+                modalTitle.textContent = 'Edit Saved Query';
+                saveQueryBtn.textContent = 'Update'; // Change button text to Update for editing mode
+                
+                // First check if the query is in our cached data
+                const cachedQuery = allQueriesData.find(q => q.recurrent_query_uuid === queryUuid);
+                
+                if (cachedQuery) {
+                    console.log('Using cached query data:', cachedQuery);
+                    populateFormWithQueryData(cachedQuery);
+                    queryModal.style.display = 'block';
+                    return;
+                }
+                
+                // If not in cache, fetch from server
+                fetch(`/api/recurrent-query/${queryUuid}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(response => {
+                        console.log('Edit query response:', response); // Debug log
+                        
+                        // Handle different response structures
+                        let query = response;
+                        
+                        // Check if response has a specific structure
+                        if (response.recurrent_query) {
+                            query = response.recurrent_query;
+                        } else if (response.data) {
+                            query = response.data;
+                        }
+                        
+                        console.log('Edit query data:', query); // Debug the received data
+                        populateFormWithQueryData(query);
+                        
+                        // Display modal
+                        queryModal.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Error fetching query details:', error);
+                        alert(`Error fetching query details: ${error.message}`);
+                    });
+            };
+            
+            // Helper function to populate form with query data
+            function populateFormWithQueryData(query) {
+                // Populate form with data
+                queryUuidField.value = query.recurrent_query_uuid || '';
+                queryNameField.value = query.recurrent_query_name || '';
+                queryTypeField.value = query.query_type || 'search';
+                queryContentField.value = query.query_content || '';
+                queryTagsField.value = query.query_tags || '';
+                
+                // Handle dates - ensure they are in YYYY-MM-DD format for the date input fields
+                if (query.query_start_document_date) {
+                    const startDate = formatDate(query.query_start_document_date);
+                    queryStartDateField.value = startDate;
+                } else {
+                    queryStartDateField.value = '';
+                }
+                
+                if (query.query_end_document_date) {
+                    const endDate = formatDate(query.query_end_document_date);
+                    queryEndDateField.value = endDate;
+                } else {
+                    queryEndDateField.value = '';
+                }
+                
+                queryCommentsField.value = query.comments || '';
+                
+                // Display UUID field if available
+                if (query.recurrent_query_uuid) {
+                    queryUuidDisplayField.value = query.recurrent_query_uuid;
+                    uuidDisplayContainer.style.display = 'block';
+                } else {
+                    uuidDisplayContainer.style.display = 'none';
+                }
+            }
+            
+            // Function to show delete confirmation modal
+            window.showDeleteModal = function(queryUuid) {
+                deleteQueryUuidField.value = queryUuid;
+                deleteModal.style.display = 'block';
+            };
+            
+            // Function to save or update a recurrent query
+            function saveRecurrentQuery() {
+                // Validate form
+                if (!queryNameField.value.trim() || !queryContentField.value.trim() || !queryTypeField.value) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+                
+                // Prepare data
+                const queryData = {
+                    recurrent_query_name: queryNameField.value.trim(),
+                    query_type: queryTypeField.value,
+                    query_content: queryContentField.value.trim(),
+                    query_tags: queryTagsField.value.trim(),
+                    query_start_document_date: queryStartDateField.value || null,
+                    query_end_document_date: queryEndDateField.value || null,
+                    comments: queryCommentsField.value.trim()
+                };
+                
+                const queryUuid = queryUuidField.value;
+                let url = '/api/recurrent-query';
+                let method = 'POST';
+                let isUpdate = false;
+                
+                // If editing an existing query
+                if (queryUuid) {
+                    url = `/api/recurrent-query/${queryUuid}`;
+                    method = 'PUT';
+                    queryData.recurrent_query_uuid = queryUuid;
+                    isUpdate = true;
+                }
+                
+                console.log(`Sending ${method} request to ${url} with data:`, queryData); // Debug log
+                
+                // Send request to server
+                fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(queryData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(isUpdate ? 'Update response:' : 'Create response:', data); // Debug the response
+                    closeQueryModal();
+                    loadRecurrentQueries();
+                    alert(isUpdate ? 'Query updated successfully!' : 'Query added successfully!');
+                })
+                .catch(error => {
+                    console.error(`Error ${isUpdate ? 'updating' : 'saving'} query:`, error);
+                    alert(`Error ${isUpdate ? 'updating' : 'saving'} query: ${error.message}`);
+                });
+            }
+            
+            // Function to delete recurrent query
+            function deleteRecurrentQuery() {
+                const queryUuid = deleteQueryUuidField.value;
+                
+                fetch(`/api/recurrent-query/${queryUuid}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    closeDeleteModal();
+                    loadRecurrentQueries();
+                    alert('Query deleted successfully!');
+                })
+                .catch(error => {
+                    console.error('Error deleting query:', error);
+                    alert(`Error deleting query: ${error.message}`);
+                });
+            }
+            
+            // Function to close query modal and reset form
+            function closeQueryModal() {
+                queryModal.style.display = 'none';
+                resetQueryForm();
+            }
+            
+            // Function to close delete modal
+            function closeDeleteModal() {
+                deleteModal.style.display = 'none';
+            }
+            
+            // Function to reset query form
+            function resetQueryForm() {
+                queryForm.reset();
+                queryUuidField.value = '';
+                uuidDisplayContainer.style.display = 'none';
+            }
+            
+            // Helper function to escape HTML
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+        });
+    </script>
+</body>
+</html>

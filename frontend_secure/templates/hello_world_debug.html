@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello World Debug</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/debug.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Hello World Debug Page</h1>
+        <div class="debug-info">
+            <h2>Environment Information</h2>
+            <pre class="json-display">{{ env_info | tojson(indent=2) }}</pre>
+            
+            <h2>Request Headers</h2>
+            <pre class="json-display">{{ headers | tojson(indent=2) }}</pre>
+            
+            <h2>Flask Configuration</h2>
+            <pre class="json-display">{{ config_info | tojson(indent=2) }}</pre>
+        </div>
+        
+        <div class="navigation">
+            <button onclick="location.href='/settings'">Back to Settings</button>
+            <button onclick="location.href='/welcome'">Back to Welcome Page</button>
+        </div>
+    </div>
+</body>
+</html>

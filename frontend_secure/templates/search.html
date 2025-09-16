@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Page</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/search.css') }}">
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 5px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            margin-bottom: 20px;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        /* Expandable content styles */
+        .expand-button {
+            display: inline-block;
+            cursor: pointer;
+            margin-left: 5px;
+            font-weight: bold;
+            color: #0066cc;
+        }
+        
+        .content-preview {
+            display: block;
+        }
+        
+        .content-full {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-left: 3px solid #0066cc;
+        }
+        
+        .source-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+        }
+        
+        /* Metadata display styling */
+        .metadata-display {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 0.8em;
+            font-family: 'Courier New', monospace;
+            color: #6a1b9a;
+            background-color: #f3e5f5;
+            border: 1px dashed #9c27b0;
+            border-radius: 3px;
+            padding: 2px 5px;
+            margin-top: 3px;
+            margin-bottom: 3px;
+            max-width: 80%;
+            height: 1.5em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        
+        /* LLM response metadata styling */
+        .llm-response-metadata {
+            display: inline-block;
+            font-size: 0.85em;
+            font-family: 'Monaco', 'Consolas', monospace;
+            color: #607d8b;
+            background-color: #eceff1;
+            border: 1px solid #cfd8dc;
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin-left: 8px;
+            vertical-align: middle;
+            line-height: 1.2;
+        }
+        
+        /* Additional styles for synonym functionality */
+        .close-synonym {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close-synonym:hover,
+        .close-synonym:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .synonym-suggestion {
+            background-color: #f0f7ff;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #0066cc;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+        
+        /* Metadata filters styling */
+        #metadata-filters {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border: 1px solid #e0e0e0;
+            width: 100%;
+        }
+        
+        #metadata-filters h3 {
+            margin-top: 0;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        .filter-instructions {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        
+        .metadata-filter-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .metadata-filter-row select, 
+        .metadata-filter-row input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        .remove-filter {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #add-metadata-filter {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            font-size: 0.9em;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        
+        #add-metadata-filter:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        /* New row-based layout */
+        .filter-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        
+        .filter-row .filter-group {
+            flex: 1;
+        }
+        
+        .filter-row.full-width {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .button-row {
+            justify-content: flex-end;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Full-width search field styling */
+        .search-field {
+            width: 100%;
+        }
+        
+        .search-field input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1.1em;
+            box-sizing: border-box;
+        }
+        
+        .search-field label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        #clear-button {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #search-button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #compute-synonym-btn {
+            background-color: #9c27b0;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+        
+        /* Token usage info styling */
+        .token-usage-info {
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #666;
+            border-top: 1px solid #ddd;
+            padding-top: 5px;
+        }
+        
+        .token-usage-info ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        
+        .token-usage-info li {
+            margin: 2px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Search in the library</h1>
+        <p>Use the filters below, ask a question in natural language to all the documents, receive an answer and the text extracts used to justify the answer. For exemple: <i>Redige moi une clause de session</i></p>
+        
+        <div class="search-container">
+            <form id="search-form" action="/search" method="POST">
+                <!-- First row: Tags, Number of Results, Saved Query -->
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="tags">Filter by Tags:</label>
+                        <input type="text" id="tags" name="tags" placeholder="Enter tags (comma separated)">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="limit">Number of Results:</label>
+                        <select id="limit" name="limit">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5" selected>5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="recurring-query">Saved Query:</label>
+                        <select id="recurring-query" name="recurring-query">
+                            <option value="">Select a query</option>
+                            <!-- This will be populated by JavaScript -->
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Second row: Metadata Filters (full width) -->
+                <div class="filter-row full-width">
+                    <div id="metadata-filters">
+                        <h3>Metadata Filters</h3>
+                        <p class="filter-instructions">Filter documents by their metadata properties. Add multiple filters to refine your search.</p>
+                        <div id="metadata-filters-container"></div>
+                        <button type="button" id="add-metadata-filter" class="btn btn-small" disabled>Add Metadata Filter</button>
+                    </div>
+                </div>
+                
+                <!-- Third row: Search Query (full width) -->
+                <div class="filter-row full-width">
+                    <div class="search-field">
+                        <label for="search-query">Search Query:</label>
+                        <input type="text" id="search-query" name="query" placeholder="Enter your search query" required>
+                    </div>
+                </div>
+                
+                <!-- Fourth row: Buttons -->
+                <div class="filter-row button-row">
+                    <div class="button-group">
+                        <button type="button" id="compute-synonym-btn">Compute Synonym</button>
+                        <button type="submit" id="search-button">Search</button>
+                        <button type="button" id="clear-button">Clear</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="results-container">
+            <h2>Results</h2>
+            <div class="llm-results" id="llm-results">
+                <p>The LLM response will appear here after you search.</p>
+            </div>
+            
+            <div class="chunks-container">
+                <h3>Sources Used</h3>
+                <ul id="chunks-list">
+                    <li class="placeholder">No sources to display yet. Perform a search to see sources.</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="navigation">
+            <button onclick="location.href='/welcome'">Back to Welcome Page</button>
+        </div>
+    </div>
+    
+    <!-- Modal for Create Recurring Query -->
+    <div id="recurring-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Recurring Query</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="query-form">
+                    <div class="form-group">
+                        <label for="query-name">Name:</label>
+                        <input type="text" id="query-name" name="query-name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-type">Type:</label>
+                        <select id="query-type" name="query-type" required>
+                            <option value="search" selected>Search</option>
+                            <option value="filter">Filter</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-content">Content:</label>
+                        <textarea id="query-content" name="query-content" required readonly style="background-color: #f5f5f5;"></textarea>
+                        <small>This will be automatically populated from your search parameters</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-tags">Tags (comma separated):</label>
+                        <input type="text" id="query-tags" name="query-tags">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-start-date">Start Date:</label>
+                        <input type="date" id="query-start-date" name="query-start-date">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-end-date">End Date:</label>
+                        <input type="date" id="query-end-date" name="query-end-date">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-comments">Comments:</label>
+                        <textarea id="query-comments" name="query-comments"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-recurring" class="btn">Cancel</button>
+                <button id="save-recurring" class="btn btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Synonym Modal Dialog -->
+    <div id="synonym-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Synonym Suggestions</h2>
+                <span class="close-synonym">&times;</span>
+            </div>
+            <div class="modal-body" id="synonym-result">
+                <!-- Synonym results will be displayed here -->
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-synonym" class="btn">Cancel</button>
+                <button id="apply-synonym" class="btn btn-primary">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modal functionality for the recurring query modal
+        // (kept for backward compatibility with existing functionality)
+        const modal = document.getElementById("recurring-modal");
+        const closeSpan = document.getElementsByClassName("close")[0];
+        const cancelBtn = document.getElementById("cancel-recurring");
+        const saveBtn = document.getElementById("save-recurring");
+        
+        // Synonym modal functionality
+        const synonymModal = document.getElementById("synonym-modal");
+        const computeSynonymBtn = document.getElementById("compute-synonym-btn");
+        const closeSynonymSpan = document.getElementsByClassName("close-synonym")[0];
+        const cancelSynonymBtn = document.getElementById("cancel-synonym");
+        const applySynonymBtn = document.getElementById("apply-synonym");
+        let currentSynonyms = null; // Store the processed synonym result
+        
+        // Open the synonym modal when user clicks the button
+        computeSynonymBtn.onclick = function() {
+            const query = document.getElementById("search-query").value.trim();
+            
+            if (!query) {
+                alert("Please enter a search query before computing synonyms.");
+                return;
+            }
+            
+            // Call the API to compute synonyms
+            fetch('/api/apply-synonym', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: query
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Store the computed synonyms result
+                currentSynonyms = data.processed_query || data.synonyms;
+                
+                // Display the results in the modal
+                const synonymResult = document.getElementById("synonym-result");
+                synonymResult.innerHTML = `
+                    <p>Original query: <strong>${query}</strong></p>
+                    <p>Suggested query with synonyms:</p>
+                    <p class="synonym-suggestion"><strong>${currentSynonyms}</strong></p>
+                `;
+                
+                // Show the modal
+                synonymModal.style.display = "block";
+            })
+            .catch(error => {
+                console.error('Error computing synonyms:', error);
+                alert(`Error computing synonyms: ${error.message}`);
+            });
+        }
+        
+        // Apply the computed synonyms to the search query
+        applySynonymBtn.onclick = function() {
+            if (currentSynonyms) {
+                document.getElementById("search-query").value = currentSynonyms;
+            }
+            synonymModal.style.display = "none";
+        }
+        
+        // Close the synonym modal when user clicks on X or Cancel
+        closeSynonymSpan.onclick = function() {
+            synonymModal.style.display = "none";
+        }
+        
+        cancelSynonymBtn.onclick = function() {
+            synonymModal.style.display = "none";
+        }
+        
+        // Close modals when clicking outside of them
+        window.onclick = function(event) {
+            if (event.target == synonymModal) {
+                synonymModal.style.display = "none";
+            } else if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+        
+        // Close the recurring query modal when user clicks on X or Cancel
+        closeSpan.onclick = function() {
+            modal.style.display = "none";
+        }
+        
+        cancelBtn.onclick = function() {
+            modal.style.display = "none";
+        }
+        
+        // Handle saving recurring query (retained for compatibility)
+        saveBtn.onclick = function() {
+            const queryName = document.getElementById("query-name").value;
+            const queryType = document.getElementById("query-type").value;
+            const queryContent = document.getElementById("search-query").value;
+            const queryTags = document.getElementById("query-tags").value;
+            const startDate = document.getElementById("query-start-date").value;
+            const endDate = document.getElementById("query-end-date").value;
+            const comments = document.getElementById("query-comments").value;
+            
+            if (!queryName.trim()) {
+                alert("Please enter a name for the recurring query");
+                return;
+            }
+            
+            // Create an object to store the query details
+            const recurringQuery = {
+                recurrent_query_name: queryName,
+                query_type: queryType,
+                query_content: queryContent,
+                query_tags: queryTags,
+                query_start_document_date: startDate || null,
+                query_end_document_date: endDate || null,
+                comments: comments
+            };
+            
+            // Call API to save the recurring query
+            fetch('/api/recurrent-query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(recurringQuery)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Update the dropdown
+                fetchRecurringQueries();
+                
+                // Close the modal
+                modal.style.display = "none";
+                
+                // Show success message
+                alert("Recurring query saved successfully!");
+            })
+            .catch(error => {
+                console.error('Error saving recurring query:', error);
+                alert(`Error saving recurring query: ${error.message}`);
+            });
+        }
+        
+        // Store the full saved query list for later use
+        let saved_query_list = [];
+
+        // Fetch recurring queries from the API
+        function fetchRecurringQueries() {
+            fetch('/api/recurrent-query', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Store the complete response in our saved_query_list variable
+                if (data && data.recurrent_queries) {
+                    // Match the expected format from rust_get_reccurent_query
+                    saved_query_list = data.recurrent_queries;
+                } else if (Array.isArray(data)) {
+                    saved_query_list = data;
+                } else {
+                    console.error('Unexpected data structure:', data);
+                    saved_query_list = [];
+                }
+                console.log('Saved Queries List:', saved_query_list);
+                
+                // Now populate the dropdown
+                populateRecurringQueryDropdown();
+            })
+            .catch(error => {
+                console.error('Error fetching recurring queries:', error);
+                alert(`Error fetching recurring queries: ${error.message}`);
+            });
+        }
+
+        // Populate the recurring query dropdown with saved queries
+        function populateRecurringQueryDropdown() {
+            const dropdown = document.getElementById("recurring-query");
+            
+            // Clear existing options except the first one
+            while (dropdown.options.length > 1) {
+                dropdown.remove(1);
+            }
+            
+            // Add each query to the dropdown
+            saved_query_list.forEach(query => {
+                const option = document.createElement("option");
+                option.value = query.recurrent_query_uuid;
+                option.text = query.recurrent_query_name;
+                dropdown.appendChild(option);
+            });
+        }
+
+        // Handle selection of recurring query
+        document.getElementById("recurring-query").addEventListener("change", function() {
+            const selectedUuid = this.value;
+            
+            if (selectedUuid !== "") {
+                // Find the selected query in our saved_query_list
+                const selectedQuery = saved_query_list.find(query => query.recurrent_query_uuid === selectedUuid);
+                
+                if (selectedQuery) {
+                    // Populate form fields with the selected query data
+                    document.getElementById("search-query").value = selectedQuery.query_content || '';
+                    document.getElementById("tags").value = selectedQuery.query_tags || '';
+                    
+                    // Format dates if they exist
+                    if (selectedQuery.query_start_document_date) {
+                        document.getElementById("date-from").value = selectedQuery.query_start_document_date;
+                    } else {
+                        document.getElementById("date-from").value = '';
+                    }
+                    
+                    if (selectedQuery.query_end_document_date) {
+                        document.getElementById("date-to").value = selectedQuery.query_end_document_date;
+                    } else {
+                        document.getElementById("date-to").value = '';
+                    }
+                } else {
+                    console.error('Selected query not found in saved_query_list');
+                }
+            }
+        });
+
+        // Load metadata when page is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchRecurringQueries();
+            fetchMetadataFields();
+        });
+        
+        // Store available metadata fields
+        let metadataFieldsList = [];
+
+        // Fetch metadata fields from the API
+        function fetchMetadataFields() {
+            fetch('/api/metadata')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.metadatas && Array.isArray(data.metadatas)) {
+                        metadataFieldsList = data.metadatas;
+                    } else if (Array.isArray(data)) {
+                        metadataFieldsList = data;
+                    }
+                    
+                    if (metadataFieldsList.length === 0) {
+                        // Handle case where no metadata fields are available
+                        document.getElementById('metadata-filters').innerHTML = 
+                            '<h3>Metadata Filters</h3>' +
+                            '<p class="filter-instructions">No metadata fields are available. Contact an administrator to set up metadata fields.</p>';
+                    } else {
+                        console.log('Available metadata fields:', metadataFieldsList);
+                        // Enable the "Add Metadata Filter" button if fields are available
+                        document.getElementById('add-metadata-filter').disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching metadata fields:', error);
+                    document.getElementById('metadata-filters').innerHTML = 
+                        '<h3>Metadata Filters</h3>' +
+                        '<p class="filter-instructions">Error loading metadata fields: ' + error.message + '</p>';
+                });
+        }
+        
+        // Add new metadata filter row
+        document.getElementById('add-metadata-filter').addEventListener('click', addMetadataFilterRow);
+        
+        function addMetadataFilterRow() {
+            const container = document.getElementById('metadata-filters-container');
+            const rowId = Date.now(); // Unique ID for this filter row
+            
+            const filterRow = document.createElement('div');
+            filterRow.className = 'metadata-filter-row';
+            filterRow.dataset.id = rowId;
+            
+            // Create metadata field selector
+            const fieldSelect = document.createElement('select');
+            fieldSelect.className = 'metadata-field';
+            fieldSelect.setAttribute('required', true);
+            
+            // Add empty default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select a field';
+            fieldSelect.appendChild(defaultOption);
+            
+            // Add options from metadataFieldsList
+            metadataFieldsList.forEach(field => {
+                const option = document.createElement('option');
+                option.value = field.metadata_uuid;
+                option.textContent = field.metadata_name;
+                option.dataset.type = field.metadata_type;
+                fieldSelect.appendChild(option);
+            });
+            
+            // Create operator selector
+            const operatorSelect = document.createElement('select');
+            operatorSelect.className = 'metadata-operator';
+            
+            // Add operator options
+            const operators = [
+                { value: 'eq', text: 'Equal to' },
+                { value: 'neq', text: 'Not equal to' },
+                { value: 'contains', text: 'Contains' },
+                { value: 'not_contains', text: 'Does not contain' },
+                { value: 'gt', text: 'Greater than' },
+                { value: 'lt', text: 'Less than' },
+                { value: 'gte', text: 'Greater than or equal to' },
+                { value: 'lte', text: 'Less than or equal to' }
+            ];
+            
+            operators.forEach(op => {
+                const option = document.createElement('option');
+                option.value = op.value;
+                option.textContent = op.text;
+                operatorSelect.appendChild(option);
+            });
+            
+            // Create value input
+            const valueInput = document.createElement('input');
+            valueInput.type = 'text';
+            valueInput.className = 'metadata-value';
+            valueInput.placeholder = 'Value';
+            
+            // Create remove button
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'remove-filter';
+            removeButton.textContent = '×';
+            removeButton.addEventListener('click', function() {
+                container.removeChild(filterRow);
+            });
+            
+            // Add change listener to field select to update input type
+            fieldSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const fieldType = selectedOption.dataset.type;
+                
+                // Update input type based on metadata field type
+                if (fieldType === 'DATE') {
+                    valueInput.type = 'date';
+                } else if (fieldType === 'NUMBER' || fieldType === 'INTEGER') {
+                    valueInput.type = 'number';
+                    if (fieldType === 'INTEGER') {
+                        valueInput.step = '1';
+                    }
+                } else if (fieldType === 'BOOLEAN') {
+                    valueInput.type = 'checkbox';
+                } else {
+                    valueInput.type = 'text';
+                }
+                
+                // Update available operators based on field type
+                operatorSelect.innerHTML = '';
+                
+                let availableOperators;
+                if (fieldType === 'BOOLEAN') {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' }
+                    ];
+                } else if (fieldType === 'DATE' || fieldType === 'NUMBER' || fieldType === 'INTEGER') {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' },
+                        { value: 'gt', text: 'Greater than' },
+                        { value: 'lt', text: 'Less than' },
+                        { value: 'gte', text: 'Greater than or equal to' },
+                        { value: 'lte', text: 'Less than or equal to' }
+                    ];
+                } else {
+                    availableOperators = [
+                        { value: 'eq', text: 'Equal to' },
+                        { value: 'neq', text: 'Not equal to' },
+                        { value: 'contains', text: 'Contains' },
+                        { value: 'not_contains', text: 'Does not contain' }
+                    ];
+                }
+                
+                availableOperators.forEach(op => {
+                    const option = document.createElement('option');
+                    option.value = op.value;
+                    option.textContent = op.text;
+                    operatorSelect.appendChild(option);
+                });
+            });
+            
+            // Add elements to row
+            filterRow.appendChild(fieldSelect);
+            filterRow.appendChild(operatorSelect);
+            filterRow.appendChild(valueInput);
+            filterRow.appendChild(removeButton);
+            
+            // Add row to container
+            container.appendChild(filterRow);
+        }
+        
+        // Validate and convert metadata value based on type
+        function validateMetadataValue(value, type) {
+            if (value === undefined || value === null || value === '') {
+                return null;
+            }
+            
+            try {
+                switch(type) {
+                    case 'NUMBER':
+                    case 'INTEGER':
+                        const num = Number(value);
+                        if (isNaN(num)) {
+                            console.warn(`Invalid number value: ${value}`);
+                            return null;
+                        }
+                        return type === 'INTEGER' ? Math.floor(num) : num;
+                        
+                    case 'BOOLEAN':
+                        // Convert to actual boolean value
+                        if (typeof value === 'boolean') {
+                            return value;
+                        } else if (typeof value === 'string') {
+                            return value.toLowerCase() === 'true';
+                        }
+                        return Boolean(value);
+                        
+                    case 'DATE':
+                        // Ensure date is in ISO format
+                        const date = new Date(value);
+                        if (isNaN(date.getTime())) {
+                            console.warn(`Invalid date value: ${value}`);
+                            return null;
+                        }
+                        return date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+                        
+                    default: // STRING and others
+                        return String(value);
+                }
+            } catch (error) {
+                console.error(`Error validating metadata value (${type}):`, error);
+                return null;
+            }
+        }
+        
+        // Function to gather metadata filters
+        function collectMetadataFilters() {
+            const filters = [];
+            const filterRows = document.querySelectorAll('.metadata-filter-row');
+            
+            filterRows.forEach(row => {
+                const fieldSelect = row.querySelector('.metadata-field');
+                const operatorSelect = row.querySelector('.metadata-operator');
+                const valueInput = row.querySelector('.metadata-value');
+                
+                if (fieldSelect.value && operatorSelect.value) {
+                    // Get the metadata field details
+                    const selectedOption = fieldSelect.options[fieldSelect.selectedIndex];
+                    const fieldName = selectedOption.textContent;
+                    const fieldType = selectedOption.dataset.type;
+                    
+                    // Get the value based on input type
+                    let value;
+                    if (valueInput.type === 'checkbox') {
+                        value = valueInput.checked;
+                    } else {
+                        value = valueInput.value;
+                    }
+                    
+                    // Validate and convert the value based on metadata type
+                    value = validateMetadataValue(value, fieldType);
+                    
+                    if (value !== undefined && value !== null) {
+                        filters.push({
+                            metadata_uuid: fieldSelect.value,
+                            metadata_name: fieldName,
+                            metadata_type: fieldType,
+                            operator: operatorSelect.value,
+                            value: value
+                        });
+                    }
+                }
+            });
+            
+            console.log('Collected metadata filters:', filters);
+            return filters;
+        }
+        
+        // Function to validate a metadata filter before sending to API
+        function validateMetadataFilter(filter) {
+            // Check for required fields
+            if (!filter.metadata_uuid) {
+                console.error("Missing metadata_uuid in filter", filter);
+                return false;
+            }
+            
+            if (!filter.operator) {
+                console.error("Missing operator in filter", filter);
+                return false;
+            }
+            
+            // Value can be null, 0, false - so we need to check if it's undefined 
+            if (filter.value === undefined) {
+                console.error("Missing value in filter", filter);
+                return false;
+            }
+            
+            // Validate operator value
+            const validOperators = ['eq', 'neq', 'contains', 'not_contains', 'gt', 'lt', 'gte', 'lte'];
+            if (!validOperators.includes(filter.operator)) {
+                console.error(`Invalid operator '${filter.operator}' in filter`, filter);
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Add form submit handler for search
+        document.getElementById('search-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            // Get form values
+            const query = document.getElementById('search-query').value.trim();
+            const tags = document.getElementById('tags').value;
+            const limit = document.getElementById('limit').value;
+            
+            // Validate that query is not empty
+            if (!query) {
+                alert('Please enter a search query before submitting.');
+                document.getElementById('search-query').focus();
+                return;
+            }
+            
+            // Get metadata filters
+            const metadataFilters = collectMetadataFilters();
+            
+            // Create a payload for the search request
+            const searchPayload = {
+                query: query,
+                tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+                limit: parseInt(limit, 10)
+            };
+            
+            // Only add document_filters if we have metadata filters
+            if (metadataFilters && metadataFilters.length > 0) {
+                // Validate all filters first
+                const validFilters = metadataFilters.filter(filter => validateMetadataFilter(filter));
+                
+                if (validFilters.length === 0) {
+                    alert('No valid metadata filters found. Please check your filter settings.');
+                    console.error('No valid metadata filters found', metadataFilters);
+                    return;
+                }
+                
+                if (validFilters.length < metadataFilters.length) {
+                    console.warn(`${metadataFilters.length - validFilters.length} invalid filters were removed`);
+                }
+                
+                // First add metadata_filters for backward compatibility
+                searchPayload.metadata_filters = validFilters;
+                
+                // Create document_filters in the correct format expected by the API
+                searchPayload.document_filters = validFilters.map(filter => {
+                    // This is the correct format expected by the rust_get_chunks API
+                    // Note: The backend expects filter_value to be a JSON string,
+                    // not a JSON object - this is critical for compatibility
+                    return {
+                        filter_type: "metadata",
+                        filter_value: JSON.stringify({
+                            metadata_uuid: filter.metadata_uuid,
+                            operator: filter.operator,
+                            value: filter.value
+                        })
+                    };
+                });
+                
+                // Log the document filters for debugging
+                console.log('Document filters sent to API:', searchPayload.document_filters);
+                console.log('Metadata filters sent to API:', searchPayload.metadata_filters);
+            } else {
+                console.log('No metadata filters added to search payload');
+            }
+            
+            console.log('Final search payload:', searchPayload);
+            
+            // Show loading state
+            const resultsContainer = document.getElementById('llm-results');
+            resultsContainer.innerHTML = '<p>Loading results...</p>';
+            const chunksList = document.getElementById('chunks-list');
+            chunksList.innerHTML = '<li class="placeholder">Loading sources...</li>';
+            
+            // Call the API endpoint
+            fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(searchPayload)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.message || `Error: ${response.status} ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Search results:', data);
+                const resultsContainer = document.getElementById('llm-results');
+                const chunksList = document.getElementById('chunks-list');
+                
+                // Check if metadata was properly processed in the search
+                if (data.metadata_error) {
+                    const errorMsg = `Error with metadata filters: ${data.metadata_error}`;
+                    alert(errorMsg);
+                    console.error('Metadata error:', data.metadata_error);
+                    resultsContainer.innerHTML = `<div class="error-message"><strong>Metadata Error:</strong> ${data.metadata_error}</div>`;
+                    return;
+                }
+                
+                // Check if we have an error message
+                if (data.error) {
+                    resultsContainer.innerHTML = `<div class="error-message"><strong>Error:</strong> ${data.error}</div>`;
+                    chunksList.innerHTML = '<li class="placeholder">No sources available due to an error.</li>';
+                    return;
+                }
+                
+                // Check if we have chunks
+                if (data.chunks && data.chunks.length > 0) {
+                    // Display chunks
+                    chunksList.innerHTML = '';
+                    data.chunks.forEach(chunk => {
+                        const sourceItem = document.createElement('li');
+                        sourceItem.className = 'source-item';
+                        
+                        // Create document name and expand button container
+                        const headerDiv = document.createElement('div');
+                        headerDiv.innerHTML = `
+                            <strong>Document:</strong> ${chunk.document_name}
+                            <span class="expand-button">+</span>
+                        `;
+                        
+                        // Create the preview content div
+                        const previewDiv = document.createElement('div');
+                        previewDiv.className = 'content-preview';
+                        previewDiv.id = `preview-${chunk.document_chunk_uuid}`;
+                        previewDiv.textContent = `${chunk.embebed_text.substring(0, 100)}...`;
+                        
+                        // Create the full content div
+                        const fullDiv = document.createElement('div');
+                        fullDiv.className = 'content-full';
+                        fullDiv.id = chunk.document_chunk_uuid;
+                        fullDiv.style.display = 'none';
+                        fullDiv.textContent = chunk.embebed_text;
+                        
+                        // Add metadata if available
+                        if (chunk.document_metadata && chunk.document_metadata.length > 0) {
+                            const metadataDiv = document.createElement('div');
+                            metadataDiv.style.marginTop = '10px';
+                            metadataDiv.style.borderTop = '1px dashed #9c27b0';
+                            metadataDiv.style.paddingTop = '5px';
+                            
+                            const metadataTitle = document.createElement('strong');
+                            metadataTitle.textContent = 'Metadata: ';
+                            metadataDiv.appendChild(metadataTitle);
+                            
+                            const metadataList = document.createElement('span');
+                            metadataList.className = 'metadata-display';
+                            metadataList.style.display = 'inline-block';
+                            metadataList.style.maxWidth = '100%';
+                            metadataList.style.height = 'auto';
+                            metadataList.style.whiteSpace = 'normal';
+                            
+                            const allMetadataItems = chunk.document_metadata.map(meta => {
+                                let value = null;
+                                if (meta.metadata_value_string !== null) value = meta.metadata_value_string;
+                                else if (meta.metadata_value_int !== null) value = meta.metadata_value_int;
+                                else if (meta.metadata_value_float !== null) value = meta.metadata_value_float;
+                                else if (meta.metadata_value_boolean !== null) value = meta.metadata_value_boolean;
+                                else if (meta.metadata_value_date !== null) {
+                                    const date = new Date(meta.metadata_value_date);
+                                    value = date.toLocaleDateString();
+                                }
+                                return `${meta.metadata_name}: ${value}`;
+                            });
+                            
+                            metadataList.textContent = allMetadataItems.join(', ');
+                            metadataDiv.appendChild(metadataList);
+                            fullDiv.appendChild(metadataDiv);
+                        }
+                        
+                        // Assemble the source item
+                        sourceItem.appendChild(headerDiv);
+                        sourceItem.appendChild(previewDiv);
+                        sourceItem.appendChild(fullDiv);
+                        chunksList.appendChild(sourceItem);
+                        
+                        // Add expand functionality
+                        const expandButton = sourceItem.querySelector('.expand-button');
+                        expandButton.addEventListener('click', function() {
+                            if (fullDiv.style.display === 'block') {
+                                fullDiv.style.display = 'none';
+                                previewDiv.style.display = 'block';
+                                expandButton.textContent = '+';
+                            } else {
+                                fullDiv.style.display = 'block';
+                                previewDiv.style.display = 'none';
+                                expandButton.textContent = '-';
+                            }
+                        });
+                    });
+
+                    // Call the OpenAI Answer service with the chunks and query
+                    resultsContainer.innerHTML = '<p>Generating answer...</p>';
+                    
+                    fetch('/api/get-openai-answer', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            question: query,
+                            chunks: data.chunks
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Error generating answer: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(openaiData => {
+                        if (openaiData && openaiData.answer) {
+                            // Format the answer with line breaks
+                            const formattedAnswer = openaiData.answer.replace(/\n/g, '<br>');
+                            
+                            // Add token usage information if available
+                            let tokenUsageHtml = '';
+                            if (openaiData.token_usage) {
+                                tokenUsageHtml = `
+                                    <div class="token-usage-info">
+                                        <strong>Token Usage:</strong>
+                                        <ul>
+                                            <li>Input tokens: ${openaiData.token_usage.input_tokens || 'N/A'}</li>
+                                            <li>Output tokens: ${openaiData.token_usage.output_tokens || 'N/A'}</li>
+                                            <li>Total tokens: ${openaiData.token_usage.total_tokens || 'N/A'}</li>
+                                        </ul>
+                                    </div>
+                                `;
+                            }
+                            
+                            resultsContainer.innerHTML = `
+                                <p>${formattedAnswer}</p>
+                                ${tokenUsageHtml}
+                            `;
+                        } else {
+                            resultsContainer.innerHTML = '<p>No response generated.</p>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        resultsContainer.innerHTML = `<p class="error-message">Error generating answer: ${error.message}</p>`;
+                    });
+                } else {
+                    resultsContainer.innerHTML = '<p>No relevant results found.</p>';
+                    chunksList.innerHTML = '<li class="placeholder">No sources found.</li>';
+                }
+            })
+            .catch(error => {
+                console.error('Error performing search:', error);
+                const resultsContainer = document.getElementById('llm-results');
+                const chunksList = document.getElementById('chunks-list');
+                resultsContainer.innerHTML = `<div class="error-message"><strong>Error:</strong> ${error.message}</div>`;
+                chunksList.innerHTML = '<li class="placeholder">Error loading sources.</li>';
+            });
+        });
+        
+        // Handle search button click for additional validation
+        document.getElementById('search-button').addEventListener('click', function(event) {
+            const query = document.getElementById('search-query').value.trim();
+            if (!query) {
+                // Prevent form submission if query is empty
+                event.preventDefault();
+                alert('Please enter a search query before searching.');
+                document.getElementById('search-query').focus();
+            }
+        });
+        
+        // Handle clear button click
+        document.getElementById('clear-button').addEventListener('click', function() {
+            // Clear all form fields
+            document.getElementById('tags').value = '';
+            document.getElementById('search-query').value = '';
+            document.getElementById('recurring-query').selectedIndex = 0;
+            document.getElementById('limit').value = '5'; // Reset to default
+            
+            // Clear metadata filters
+            const filterContainer = document.getElementById('metadata-filters-container');
+            filterContainer.innerHTML = '';
+            
+            // Clear results
+            document.getElementById('llm-results').innerHTML = '<p class="placeholder">The LLM response will appear here after you search.</p>';
+            document.getElementById('chunks-list').innerHTML = '<li class="placeholder">No sources to display yet. Perform a search to see sources.</li>';
+        });
+        
+        // Add CSS for error message
+        const style = document.createElement('style');
+        style.textContent = `
+            .error-message {
+                background-color: #ffebee;
+                color: #c62828;
+                padding: 10px 15px;
+                border-radius: 4px;
+                border-left: 4px solid #c62828;
+                margin: 15px 0;
+                font-weight: normal;
+            }
+            
+            .search-error {
+                background-color: #fff0f0;
+                border: 1px solid #ffcdd2;
+                border-left: 4px solid #ff6b6b;
+                color: #d32f2f;
+                padding: 12px;
+                margin-top: 15px;
+                border-radius: 4px;
+                font-size: 15px;
+                line-height: 1.5;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

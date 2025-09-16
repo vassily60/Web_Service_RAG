@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome Page</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .button-container button {
+            min-width: 200px;
+            margin-bottom: 10px;
+        }
+        
+        p {
+            text-align: left;
+            max-width: 800px;
+            margin: 10px auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to the CVE Document Search Portal, powered by Generative AI</h1>
+        <p>You are now in the hub of the portal, and can navigate to:</p>
+        <div class="button-container">
+            <button onclick="location.href='/search'">Search in the library</button>
+            <button onclick="location.href='/document-search'">Search by document</button>
+            <button onclick="location.href='/recurrent-query'">Saved Queries</button>
+            <button onclick="location.href='/admin-documents'">Documents Library</button>
+            <button onclick="location.href='/metadata'">Metadata Management</button>
+            <button onclick="location.href='/synonym'">Synonyms Management</button>
+            <button onclick="location.href='/logout'">Logout</button>
+        </div>
+        <p><b>Search in the library:</b> Ask a question in natural language to all the documents, receive an answer and the text extracts used to justify the answer. For exemple: <i>Redige moi une clause de session</i></p>
+        <p><b>Search by document:</b> Ask the same question in natural language to all the documents, receive an answer and the text extracts used to justify the answer for each of them. For exemple: <i>Quels sont les signataires de ce documents</i></p>
+        <p><b>Saved Queries:</b> Manage saved queries that can be shared with your team members and recall in the searchs</p>
+        <p><b>Documents Library:</b> Manage the documents in the library by adding tags and metadatas</p>
+        <p><b>Metadata Management:</b> Manage the metadata of the documents in the library</p>
+        <p><b>Synonyms Management:</b> Manage the synonyms</p>
+        <p><b>Logout:</b> Logout from the portal</p>
+        <p>For any questions, please contact the administrator.</p>
+    </div>
+</body>
+</html>
