@@ -1,0 +1,536 @@
+service: TINYBACKEND-PYTHON
+
+#define custom vars for dev and prod
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+  myStage: ${opt:stage, self:provider.stage}
+  myEnvironment:
+    COGNITO_SECRET:
+      prod: "cognito_nicomatic_demo_secret_prod"
+      dev: "cognito_nicomatic_demo_secret_dev"
+    COGNITO_ARN:
+      prod: arn:aws:cognito-idp:ap-southeast-1:781857564217:userpool/ap-southeast-1_AgosmHdU4
+      dev: arn:aws:cognito-idp:ap-southeast-1:781857564217:userpool/ap-southeast-1_AgosmHdU4
+    ROLE_ARN:
+      prod: arn:aws:iam::781857564217:role/aws_lambda_role_api_gateway
+      dev: arn:aws:iam::781857564217:role/aws_lambda_role_api_gateway
+    DATABASE:
+      prod: "INNOVATION"
+      dev: "INNOVATION"
+    APIKEY:
+      prod: "TINYBACKEND-PYTHON-KEY-PROD"
+      dev: "TINYBACKEND-PYTHON-KEY-DEV"
+    S3BUCKET_IMPORT_FOLDER:
+      prod: "palo-hk-nicomatic-demo-blockchain-prod"
+      dev: "palo-hk-nicomatic-demo-blockchain-dev"
+    S3BUCKET_EXPORT_FOLDER:
+      prod: "nicomatic-demo-blochchain"
+      dev: "nicomatic-demo-blochchain"
+    DATABASE_CONECTION_STRING:
+      prod: demo_connexion_secret_manager_dev
+      dev: demo_connexion_secret_manager_dev
+    REGION:
+      prod: ap-southeast-1
+      dev: ap-southeast-1
+    LAYER_TOOLS:
+      prod: arn:aws:lambda:ap-southeast-1:781857564217:layer:tools_layer:1
+      dev: arn:aws:lambda:ap-southeast-1:781857564217:layer:tools_layer:1
+    LAYER_REQUET_JOSE:
+      prod: arn:aws:lambda:ap-southeast-1:781857564217:layer:request_jose:2
+      dev: arn:aws:lambda:ap-southeast-1:781857564217:layer:request_jose:2
+    LAYER_SNOWFLAKE:
+      prod: arn:aws:lambda:ap-southeast-1:781857564217:layer:snowflake_layer:1
+      dev: arn:aws:lambda:ap-southeast-1:781857564217:layer:snowflake_layer:1
+    
+
+
+    
+# --------------------------------------------------------------------------------------------
+# PROVIDER
+# --------------------------------------------------------------------------------------------
+
+#define provider
+provider:
+  name: aws
+  runtime: python3.8
+  stage: dev
+  region: ${self:custom.myEnvironment.REGION.${self:custom.myStage}}
+  environment:
+      DATABASE_CONECTION_STRING: ${self:custom.myEnvironment.DATABASE_CONECTION_STRING.${self:custom.myStage}}
+      DATABASE: ${self:custom.myEnvironment.DATABASE.${self:custom.myStage}}
+      REGION: ${self:custom.myEnvironment.REGION.${self:custom.myStage}}
+      COGNITO_SECRET: ${self:custom.myEnvironment.COGNITO_SECRET.${self:custom.myStage}}
+      S3BUCKET_IMPORT_FOLDER: ${self:custom.myEnvironment.S3BUCKET_IMPORT_FOLDER.${self:custom.myStage}}
+      S3BUCKET_EXPORT_FOLDER: ${self:custom.myEnvironment.S3BUCKET_EXPORT_FOLDER.${self:custom.myStage}}
+      PREFIX_ENVIRONMENT_LAMBDA: ${self:service}-${self:custom.myStage}-
+      LAYER_TOOLS: ${self:custom.myEnvironment.LAYER_TOOLS.${self:custom.myStage}}
+      LAYER_REQUET_JOSE: ${self:custom.myEnvironment.LAYER_REQUET_JOSE.${self:custom.myStage}}
+      LAYER_SNOWFLAKE: ${self:custom.myEnvironment.LAYER_SNOWFLAKE.${self:custom.myStage}}
+  #logRetentionInDays: 100
+  apiGateway:
+    apiKeys:
+      - ${self:custom.myEnvironment.APIKEY.${self:custom.myStage}}
+    usagePlan:
+      #quota:
+        #limit: 100000
+        #offset: 0
+        #period: MONTH
+      # throttle:
+      #   burstLimit: 500
+      #   rateLimit: 400
+package:
+  individually: true
+
+
+# --------------------------------------------------------------------------------------------
+# RESSOURCES
+# --------------------------------------------------------------------------------------------
+
+
+# --------------------------------------------------------------------------------------------
+# FUNCTIONS
+# --------------------------------------------------------------------------------------------
+
+functions:
+  # --------------------------------------------------------------------------------------------------
+  # ----------------------- API  DEMO FUNTION  -------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  #get_hello_world
+  get_hello_world:
+    handler: functions/get_hello_world/lambda_function.lambda_handler
+    description: Demo simple hello world
+    package:
+      patterns:
+        - '!**'
+        - 'functions/get_hello_world/**'
+        - 'functions/shared/**' #the shared functions and associated custom code
+      individually: true
+    layers:
+      #- arn:aws:lambda:
+    runtime: python3.8
+    memorySize:
+      - 2048
+    timeout:
+      - 30
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    events:
+      - http:
+          path: get_hello_world
+          method: post
+          authorizer:
+            #arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+          private: true
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$')
+            statusCodes:
+              200:
+                pattern: ''
+              404:
+                pattern: '.*"statusAPI":.*"UNKNOWNRESSOURCE".*'
+                template: $input.path('$.errorMessage')
+              500:
+                pattern: '.*"statusAPI":.*"CRASH".*'
+                template: $input.path('$.errorMessage')
+              400:
+                pattern: '.*"statusAPI":.*"OPERATIONFAIL".*'
+                template: $input.path('$.errorMessage')
+  # --------------------------------------------------------------------------------------------------
+  #get_hello_world_return_code
+  get_hello_world_return_code:
+    handler: functions/get_hello_world_return_code/lambda_function.lambda_handler
+    description: Demo return code
+    package:
+      patterns:
+        - '!**'
+        - 'functions/get_hello_world_return_code/**'
+        - 'functions/shared/**' #the shared functions and associated custom code
+      individually: true
+    layers:
+      - ${self:custom.myEnvironment.LAYER_REQUET_JOSE.${self:custom.myStage}}
+    runtime: python3.8
+    memorySize:
+      - 2048
+    timeout:
+      - 30
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    events:
+      - http:
+          path: get_hello_world_return_code
+          method: post
+          authorizer:
+            arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+          private: true
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$')
+            statusCodes:
+              200:
+                pattern: ''
+              404:
+                pattern: '.*"statusAPI":.*"UNKNOWNRESSOURCE".*'
+                template: $input.path('$.errorMessage')
+              500:
+                pattern: '.*"statusAPI":.*"CRASH".*'
+                template: $input.path('$.errorMessage')
+              400:
+                pattern: '.*"statusAPI":.*"OPERATIONFAIL".*'
+                template: $input.path('$.errorMessage')
+              
+  # --------------------------------------------------------------------------------------------------
+  #get_hello_cognito
+  get_hello_cognito:
+    handler: functions/get_hello_cognito/lambda_function.lambda_handler
+    description: Demo Cognito
+    package:
+      patterns:
+        - '!**'
+        - 'functions/get_hello_cognito/**'
+        - 'functions/shared/**' #the shared functions and associated custom code
+      individually: true
+    layers:
+      #- arn:aws:lambda:
+    runtime: python3.8
+    memorySize:
+      - 2048
+    timeout:
+      - 30
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    events:
+      - http:
+          path: get_hello_cognito
+          method: post
+          authorizer:
+            arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+          private: true
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$')
+            statusCodes:
+              200:
+                pattern: ''
+              404:
+                pattern: '.*"statusAPI":.*"UNKNOWNRESSOURCE".*'
+                template: $input.path('$.errorMessage')
+              500:
+                pattern: '.*"statusAPI":.*"CRASH".*'
+                template: $input.path('$.errorMessage')
+              400:
+                pattern: '.*"statusAPI":.*"OPERATIONFAIL".*'
+                template: $input.path('$.errorMessage')
+  # --------------------------------------------------------------------------------------------------
+  #get_hello_file
+  get_hello_file:
+    handler: functions/get_hello_file/lambda_function.lambda_handler
+    description: Demo File
+    package:
+      patterns:
+        - '!**'
+        - 'functions/get_hello_file/**'
+        - 'functions/shared/**' #the shared functions and associated custom code
+      individually: true
+    layers:
+      #- arn:aws:lambda:
+    runtime: python3.8
+    memorySize:
+      - 2048
+    timeout:
+      - 30
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    events:
+      - http:
+          path: get_hello_file
+          method: post
+          authorizer:
+            arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+          private: true
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$')
+            statusCodes:
+              200:
+                pattern: ''
+              404:
+                pattern: '.*"statusAPI":.*"UNKNOWNRESSOURCE".*'
+                template: $input.path('$.errorMessage')
+              500:
+                pattern: '.*"statusAPI":.*"CRASH".*'
+                template: $input.path('$.errorMessage')
+              400:
+                pattern: '.*"statusAPI":.*"OPERATIONFAIL".*'
+                template: $input.path('$.errorMessage')
+  # --------------------------------------------------------------------------------------------------
+  #get_hello_excel
+  get_hello_excel:
+    handler: functions/get_hello_excel/lambda_function.lambda_handler
+    description: Demo File
+    package:
+      patterns:
+        - '!**'
+        - 'functions/get_hello_excel/**'
+        - 'functions/shared/**' #the shared functions and associated custom code
+      individually: true
+    layers:
+      #- arn:aws:lambda:
+      - ${self:custom.myEnvironment.LAYER_SNOWFLAKE.${self:custom.myStage}}
+      - ${self:custom.myEnvironment.LAYER_TOOLS.${self:custom.myStage}}
+    runtime: python3.8
+    memorySize:
+      - 2048
+    timeout:
+      - 30
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    events:
+      - http:
+          path: get_hello_excel
+          method: post
+          authorizer:
+            arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+          private: true
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$')
+            statusCodes:
+              200:
+                pattern: ''
+              404:
+                pattern: '.*"statusAPI":.*"UNKNOWNRESSOURCE".*'
+                template: $input.path('$.errorMessage')
+              500:
+                pattern: '.*"statusAPI":.*"CRASH".*'
+                template: $input.path('$.errorMessage')
+              400:
+                pattern: '.*"statusAPI":.*"OPERATIONFAIL".*'
+                template: $input.path('$.errorMessage')
+  # --------------------------------------------------------------------------------------------------
+  #get_decode_token
+  get_decode_token:
+    handler: functions/get_decode_token/lambda_function.lambda_handler
+    description: Demo decode token
+    package:
+      patterns:
+        - '!**'
+        - 'functions/get_decode_token/**'
+        - 'functions/shared/**' #the shared functions and associated custom code
+      individually: true
+    layers:
+      - ${self:custom.myEnvironment.LAYER_REQUET_JOSE.${self:custom.myStage}}
+    runtime: python3.8
+    memorySize:
+      - 2048
+    timeout:
+      - 30
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    events:
+      - http:
+          path: get_decode_token
+          method: post
+          authorizer:
+            arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+          private: true
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$')
+            statusCodes:
+              200:
+                pattern: ''
+              404:
+                pattern: '.*"statusAPI":.*"UNKNOWNRESSOURCE".*'
+                template: $input.path('$.errorMessage')
+              500:
+                pattern: '.*"statusAPI":.*"CRASH".*'
+                template: $input.path('$.errorMessage')
+              400:
+                pattern: '.*"statusAPI":.*"OPERATIONFAIL".*'
+                template: $input.path('$.errorMessage')
+  # --------------------------------------------------------------------------------------------------
+  #generic_tracker
+  generic_tracker:
+    handler: functions/generic_tracker/lambda_function.lambda_handler
+    description: Generic Tracker
+    package:
+      patterns:
+        - '!**'
+        - 'functions/generic_tracker/**'
+        - 'functions/shared/**' #the shared functions and associated custom code
+      individually: true
+    layers:
+      - arn:aws:lambda:ap-southeast-1:781857564217:layer:request_jose:2
+    runtime: python3.8
+    memorySize:
+      - 2048
+    timeout:
+      - 300
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    events:
+      - http:
+          path: generic_tracker
+          method: post
+          authorizer:
+            arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+          private: true
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$')
+            statusCodes:
+              200:
+                pattern: ''
+              404:
+                pattern: '.*"statusAPI":.*"UNKNOWNRESSOURCE".*'
+                template: $input.path('$.errorMessage')
+              500:
+                pattern: '.*"statusAPI":.*"CRASH".*'
+                template: $input.path('$.errorMessage')
+              400:
+                pattern: '.*"statusAPI":.*"OPERATIONFAIL".*'
+                template: $input.path('$.errorMessage')
+  # --------------------------------------------------------------------------------------------------
+  #get_hello_snowflake
+  get_hello_snowflake:
+    handler: functions/get_hello_snowflake/lambda_function.lambda_handler
+    description: Generic Tracker
+    package:
+      patterns:
+        - '!**'
+        - 'functions/get_hello_snowflake/**'
+        - 'functions/shared/**' #the shared functions and associated custom code
+      individually: true
+    layers:
+      - arn:aws:lambda:ap-southeast-1:781857564217:layer:request_jose:2
+      - ${self:custom.myEnvironment.LAYER_SNOWFLAKE.${self:custom.myStage}}
+      - ${self:custom.myEnvironment.LAYER_TOOLS.${self:custom.myStage}}
+    runtime: python3.8
+    memorySize:
+      - 2048
+    timeout:
+      - 300
+    role: ${self:custom.myEnvironment.ROLE_ARN.${self:custom.myStage}}
+    events:
+      - http:
+          path: get_hello_snowflake
+          method: post
+          authorizer:
+            arn: ${self:custom.myEnvironment.COGNITO_ARN.${self:custom.myStage}}
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+          private: true
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$')
+            statusCodes:
+              200:
+                pattern: ''
+              404:
+                pattern: '.*"statusAPI":.*"UNKNOWNRESSOURCE".*'
+                template: $input.path('$.errorMessage')
+              500:
+                pattern: '.*"statusAPI":.*"CRASH".*'
+                template: $input.path('$.errorMessage')
+              400:
+                pattern: '.*"statusAPI":.*"OPERATIONFAIL".*'
+                template: $input.path('$.errorMessage')
+  
