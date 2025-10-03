@@ -1,5 +1,7 @@
 # Web_Service_RAG
 
+> 📖 **Quick Overview**: Check out our [detailed presentation](RAG%20Web%20Service%20Presenation%20Vassily%20Lombard.pdf) for a comprehensive overview of the project architecture and implementation details.
+
 This repository contains a web service that utilizes Retrieval-Augmented Generation (RAG) to provide enhanced responses by integrating external knowledge sources.
 
 The specific goal is to create a web service that leverages RAG techniques to improve the quality and relevance of code documentation and other text-based outputs.
