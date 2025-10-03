@@ -44,6 +44,23 @@ To run a local version of the application for development and testing:
 
 5. Access the application at `http://localhost:5001`
 
+## Deployment
+
+For detailed deployment instructions, refer to our deployment guides:
+
+- [AWS Elastic Beanstalk Deployment](documentation/deployment/README_ELASTIC_BEANSTALK.md)
+- [AWS Lambda Setup](documentation/deployment/RUST_LAMBDA.md)
+- [S3 CORS Configuration](documentation/deployment/s3_cors.md)
+
+The application uses several AWS services for production deployment:
+
+- **Frontend**: AWS Elastic Beanstalk
+- **Backend**: AWS Lambda with Rust
+- **Database**: AWS RDS (PostgreSQL)
+- **Authentication**: AWS Cognito
+- **Storage**: AWS S3
+- **API**: AWS API Gateway
+
 ## Application Screenshots
 
 ### Home Page
@@ -66,20 +83,3 @@ Manage the documents in the library by adding tags and metadatas, upload new doc
 
 ![Recurrent Queries](documentation/images/recurrentqueries.png)
 Manage saved queries that can be shared with your team members and recalled in the searches.
-
-## Deployment
-
-For detailed deployment instructions, refer to our deployment guides:
-
-- [AWS Elastic Beanstalk Deployment](documentation/deployment/README_ELASTIC_BEANSTALK.md)
-- [AWS Lambda Setup](documentation/deployment/RUST_LAMBDA.md)
-- [S3 CORS Configuration](documentation/deployment/s3_cors.md)
-
-The application uses several AWS services for production deployment:
-
-- **Frontend**: AWS Elastic Beanstalk
-- **Backend**: AWS Lambda with Rust
-- **Database**: AWS RDS (PostgreSQL)
-- **Authentication**: AWS Cognito
-- **Storage**: AWS S3
-- **API**: AWS API Gateway
